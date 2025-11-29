@@ -2,6 +2,7 @@ export interface PatternData {
     pattern: string;
     timeframe: string;
     target: number;
+    successWindow: number;
 }
 
 export interface AnalysisResult {

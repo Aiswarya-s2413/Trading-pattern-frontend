@@ -10,10 +10,11 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
     const [pattern, setPattern] = useState('bowl');
     const [timeframe, setTimeframe] = useState('4h');
     const [target, setTarget] = useState(5);
+    const [successWindow, setSuccessWindow] = useState(10);
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        onAnalyze({ pattern, timeframe, target });
+        onAnalyze({ pattern, timeframe, target, successWindow });
     };
 
     return (
@@ -28,9 +29,9 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none"
                 >
                     <option value="bowl">Bowl Pattern</option>
-                    <option value="cup_handle">Cup & Handle</option>
-                    <option value="double_bottom">Double Bottom</option>
-                    <option value="flag">Bull Flag</option>
+                    <option value="cup_handle">Narrow Range</option>
+                    {/* <option value="double_bottom">Double Bottom</option>
+                    <option value="flag">Bull Flag</option> */}
                 </select>
             </div>
 
@@ -45,6 +46,20 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
                     <option value="1h">1 Hour</option>
                     <option value="4h">4 Hours</option>
                     <option value="1d">1 Day</option>
+                </select>
+            </div>
+
+            <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 text-slate-300">Success Window (Candles)</label>
+                <select
+                    value={successWindow}
+                    onChange={(e) => setSuccessWindow(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none"
+                >
+                    <option value={5}>5 Candles</option>
+                    <option value={10}>10 Candles</option>
+                    <option value={20}>20 Candles</option>
+                    <option value={50}>50 Candles</option>
                 </select>
             </div>
 

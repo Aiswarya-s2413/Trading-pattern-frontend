@@ -15,6 +15,14 @@ export const fetchTrueDataHistory = async (
 
     console.log(`Generating mock data for ${symbol} @ ${interval}`);
 
+    if (symbol === "RELIANCE" && interval === "1D") {
+        try {
+            return await fetchRelianceData();
+        } catch (error) {
+            console.error("Failed to fetch real data, falling back to mock", error);
+        }
+    }
+
     await new Promise(r => setTimeout(r, 300)); // simulate API delay
 
     const data: OHLCVData[] = [];
@@ -172,4 +180,24 @@ const createNewCandle = (interval: "1D" | "1W" | "1m"): OHLCVData => {
         close: parseFloat(open.toFixed(2)),
         volume: 0
     };
+};
+
+const fetchRelianceData = async (): Promise<OHLCVData[]> => {
+    const response = await fetch('https://trading.aiswaryasathyan.space/api/price-history/?scrip=RELIANCE.NS&years=10');
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.statusText}`);
+    }
+    const json = await response.json();
+
+    // Map API response to OHLCVData
+    // API format: { time: number, open: number, high: number, low: number, close: number }
+    // Our format: same
+    return json.price_data.map((item: any) => ({
+        time: item.time,
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: 0 // API doesn't seem to return volume in the snippet, defaulting to 0
+    }));
 };

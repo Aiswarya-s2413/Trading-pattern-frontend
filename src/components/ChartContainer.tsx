@@ -1,6 +1,6 @@
 import { useEffect, type FC } from 'react';
 import { LightweightChart } from './LightweightChart';
-import { subscribeToLiveData } from '../services/TrueDataService';
+// import { subscribeToLiveData } from '../services/TrueDataService';
 import { useMarketStore } from '../store/marketStore';
 import { StockSelector } from './StockSelector';
 
@@ -12,7 +12,7 @@ const ChartContainer: FC = () => {
         isLoading,
         setInterval,
         loadData,
-        updateLiveCandle
+        // updateLiveCandle
     } = useMarketStore();
 
     const data = dataCache[`${currentSymbol}-${currentInterval}`] || [];
@@ -24,15 +24,16 @@ const ChartContainer: FC = () => {
     }, [currentSymbol, currentInterval, loadData]);
 
     // Subscribe to live data
-    useEffect(() => {
-        const unsubscribe = subscribeToLiveData(currentSymbol, currentInterval, (candle) => {
-            updateLiveCandle(candle);
-        });
+    // Subscribe to live data
+    // useEffect(() => {
+    //     const unsubscribe = subscribeToLiveData(currentSymbol, currentInterval, (candle) => {
+    //         updateLiveCandle(candle);
+    //     });
 
-        return () => {
-            unsubscribe();
-        };
-    }, [currentSymbol, currentInterval, updateLiveCandle]);
+    //     return () => {
+    //         unsubscribe();
+    //     };
+    // }, [currentSymbol, currentInterval, updateLiveCandle]);
 
     return (
         <div className="h-full w-full bg-dark-card rounded-lg shadow-lg overflow-hidden border border-slate-700 relative flex flex-col">

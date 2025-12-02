@@ -108,79 +108,79 @@ export const fetchTrueDataHistory = async (
 
 export type CandleCallback = (candle: OHLCVData) => void;
 
-export const subscribeToLiveData = (
-    symbol: string,
-    interval: "1D" | "1W" | "1m",
-    onUpdate: CandleCallback
-) => {
-    console.log(`Live mock feed started for ${symbol} @ ${interval}`);
+// export const subscribeToLiveData = (
+//     symbol: string,
+//     interval: "1D" | "1W" | "1m",
+//     onUpdate: CandleCallback
+// ) => {
+//     console.log(`Live mock feed started for ${symbol} @ ${interval}`);
 
-    let candle = createNewCandle(interval);
+//     let candle = createNewCandle(interval);
 
-    const tickInterval = setInterval(() => {
-        const now = new Date();
+//     const tickInterval = setInterval(() => {
+//         const now = new Date();
 
-        // Check for rollover
-        let shouldRollover = false;
-        if (interval === "1m") {
-            // If current candle time is not in the same minute as now
-            const candleTime = new Date(candle.time * 1000);
-            shouldRollover = now.getMinutes() !== candleTime.getMinutes();
-        } else if (interval === "1D") {
-            const candleTime = new Date(candle.time * 1000);
-            shouldRollover = now.getUTCDate() !== candleTime.getUTCDate();
-        }
+//         // Check for rollover
+//         let shouldRollover = false;
+//         if (interval === "1m") {
+//             // If current candle time is not in the same minute as now
+//             const candleTime = new Date(candle.time * 1000);
+//             shouldRollover = now.getMinutes() !== candleTime.getMinutes();
+//         } else if (interval === "1D") {
+//             const candleTime = new Date(candle.time * 1000);
+//             shouldRollover = now.getUTCDate() !== candleTime.getUTCDate();
+//         }
 
-        if (shouldRollover) {
-            // Start a new candle
-            const close = candle.close;
-            candle = {
-                time: interval === "1m" ? Math.floor(now.setSeconds(0, 0) / 1000) : Math.floor(now.setUTCHours(0, 0, 0, 0) / 1000),
-                open: close,
-                high: close,
-                low: close,
-                close: close,
-                volume: 0
-            };
-        }
+//         if (shouldRollover) {
+//             // Start a new candle
+//             const close = candle.close;
+//             candle = {
+//                 time: interval === "1m" ? Math.floor(now.setSeconds(0, 0) / 1000) : Math.floor(now.setUTCHours(0, 0, 0, 0) / 1000),
+//                 open: close,
+//                 high: close,
+//                 low: close,
+//                 close: close,
+//                 volume: 0
+//             };
+//         }
 
-        const tickChange = (Math.random() - 0.5) * (interval === "1m" ? 0.2 : 0.5);
-        const newClose = candle.close + tickChange;
+//         const tickChange = (Math.random() - 0.5) * (interval === "1m" ? 0.2 : 0.5);
+//         const newClose = candle.close + tickChange;
 
-        candle.high = Math.max(candle.high, newClose);
-        candle.low = Math.min(candle.low, newClose);
-        candle.close = parseFloat(newClose.toFixed(2));
-        candle.volume = (candle.volume || 0) + Math.floor(Math.random() * (interval === "1m" ? 10 : 100));
+//         candle.high = Math.max(candle.high, newClose);
+//         candle.low = Math.min(candle.low, newClose);
+//         candle.close = parseFloat(newClose.toFixed(2));
+//         candle.volume = (candle.volume || 0) + Math.floor(Math.random() * (interval === "1m" ? 10 : 100));
 
-        // Emit a COPY of the candle
-        onUpdate({ ...candle });
-    }, 200);
+//         // Emit a COPY of the candle
+//         onUpdate({ ...candle });
+//     }, 200);
 
-    return () => clearInterval(tickInterval);
-};
+//     return () => clearInterval(tickInterval);
+// };
 
-const createNewCandle = (interval: "1D" | "1W" | "1m"): OHLCVData => {
-    const base = 15000;
-    const open = base + (Math.random() - 0.5) * 50;
+// const createNewCandle = (interval: "1D" | "1W" | "1m"): OHLCVData => {
+//     const base = 15000;
+//     const open = base + (Math.random() - 0.5) * 50;
 
-    const now = new Date();
-    let time = 0;
+//     const now = new Date();
+//     let time = 0;
 
-    if (interval === "1m") {
-        time = Math.floor(now.setSeconds(0, 0) / 1000);
-    } else {
-        time = Math.floor(now.setUTCHours(0, 0, 0, 0) / 1000);
-    }
+//     if (interval === "1m") {
+//         time = Math.floor(now.setSeconds(0, 0) / 1000);
+//     } else {
+//         time = Math.floor(now.setUTCHours(0, 0, 0, 0) / 1000);
+//     }
 
-    return {
-        time,
-        open: parseFloat(open.toFixed(2)),
-        high: parseFloat(open.toFixed(2)),
-        low: parseFloat(open.toFixed(2)),
-        close: parseFloat(open.toFixed(2)),
-        volume: 0
-    };
-};
+//     return {
+//         time,
+//         open: parseFloat(open.toFixed(2)),
+//         high: parseFloat(open.toFixed(2)),
+//         low: parseFloat(open.toFixed(2)),
+//         close: parseFloat(open.toFixed(2)),
+//         volume: 0
+//     };
+// };
 
 const fetchRelianceData = async (): Promise<OHLCVData[]> => {
     const response = await fetch('https://trading.aiswaryasathyan.space/api/price-history/?scrip=RELIANCE.NS&years=10');

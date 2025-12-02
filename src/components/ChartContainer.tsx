@@ -1,18 +1,28 @@
 import { useEffect, useState, type FC } from 'react';
 import { LightweightChart } from './LightweightChart';
-import { fetchTrueDataHistory, type OHLCVData } from '../services/TrueDataService';
+import { fetchTrueDataHistory, subscribeToLiveData, type OHLCVData } from '../services/TrueDataService';
 
 const ChartContainer: FC = () => {
     const [data, setData] = useState<OHLCVData[]>([]);
+    const [lastCandle, setLastCandle] = useState<OHLCVData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [interval, setInterval] = useState<"1D" | "1W">("1D");
 
     useEffect(() => {
+        let unsubscribe: (() => void) | undefined;
+
         const loadData = async () => {
             setIsLoading(true);
+            setLastCandle(null); // Reset live candle on interval change
             try {
                 const history = await fetchTrueDataHistory('NIFTY 50', interval);
                 setData(history);
+
+                // Start live feed after history is loaded
+                unsubscribe = subscribeToLiveData('NIFTY 50', interval, (candle) => {
+                    setLastCandle(candle);
+                });
+
             } catch (error) {
                 console.error("Failed to load chart data", error);
             } finally {
@@ -21,6 +31,10 @@ const ChartContainer: FC = () => {
         };
 
         loadData();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, [interval]);
 
     return (
@@ -39,6 +53,14 @@ const ChartContainer: FC = () => {
                         {tf}
                     </button>
                 ))}
+                {lastCandle && (
+                    <div className="ml-auto flex gap-4 text-xs font-mono text-slate-300 px-2">
+                        <span>O: {lastCandle.open.toFixed(2)}</span>
+                        <span>H: {lastCandle.high.toFixed(2)}</span>
+                        <span>L: {lastCandle.low.toFixed(2)}</span>
+                        <span>C: {lastCandle.close.toFixed(2)}</span>
+                    </div>
+                )}
             </div>
             <div className="flex-1 relative">
                 {isLoading ? (
@@ -46,7 +68,7 @@ const ChartContainer: FC = () => {
                         Loading Chart Data...
                     </div>
                 ) : (
-                    <LightweightChart data={data} />
+                    <LightweightChart data={data} lastCandle={lastCandle} />
                 )}
             </div>
         </div>

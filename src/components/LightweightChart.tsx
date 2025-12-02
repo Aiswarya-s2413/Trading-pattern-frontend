@@ -1,9 +1,10 @@
-import { createChart, ColorType, CandlestickSeries, type IChartApi, type ISeriesApi } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import { useEffect, useRef, type FC } from 'react';
 import type { OHLCVData } from '../services/TrueDataService';
 
 interface LightweightChartProps {
     data: OHLCVData[];
+    lastCandle?: OHLCVData | null;
     colors?: {
         backgroundColor?: string;
         lineColor?: string;
@@ -13,7 +14,15 @@ interface LightweightChartProps {
     };
 }
 
-export const LightweightChart: FC<LightweightChartProps> = ({ data, colors = {} }) => {
+// Helper function to convert OHLCVData to lightweight-charts format
+const convertToChartData = (data: OHLCVData[]) => {
+    return data.map(item => ({
+        ...item,
+        time: item.time as UTCTimestamp
+    }));
+};
+
+export const LightweightChart: FC<LightweightChartProps> = ({ data, lastCandle, colors = {} }) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -56,7 +65,7 @@ export const LightweightChart: FC<LightweightChartProps> = ({ data, colors = {} 
         });
 
         seriesRef.current = candlestickSeries;
-        candlestickSeries.setData(data);
+        candlestickSeries.setData(convertToChartData(data));
 
         chart.timeScale().fitContent();
 
@@ -66,13 +75,32 @@ export const LightweightChart: FC<LightweightChartProps> = ({ data, colors = {} 
             window.removeEventListener('resize', handleResize);
             chart.remove();
         };
-    }, [backgroundColor, textColor]);
+    }, [backgroundColor, textColor]); // Re-create chart only if theme changes
 
+    // Update data when history changes (full reload)
     useEffect(() => {
         if (seriesRef.current) {
-            seriesRef.current.setData(data);
+            seriesRef.current.setData(convertToChartData(data));
+            if (chartRef.current) chartRef.current.timeScale().fitContent();
         }
     }, [data]);
+
+    // Update single candle when live data comes in
+    useEffect(() => {
+        if (seriesRef.current && lastCandle) {
+            try {
+                seriesRef.current.update({
+                    ...lastCandle,
+                    time: lastCandle.time as UTCTimestamp
+                });
+            } catch (e) {
+                console.error("Chart update failed", e);
+                console.log("Failed candle:", lastCandle);
+                // We can't easily get the last bar from seriesRef without using data() which might be expensive or not available in this version directly as a simple getter for last bar.
+                // But we can log what we have.
+            }
+        }
+    }, [lastCandle]);
 
     return (
         <div

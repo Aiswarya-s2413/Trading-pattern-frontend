@@ -1,7 +1,13 @@
 import type { FC } from 'react';
 import { useMarketStore } from '../store/marketStore';
 
-const STOCKS = ["NIFTY 50", "BANKNIFTY", "RELIANCE", "TCS", "INFY"];
+const STOCKS = [
+    // "NIFTY 50", 
+    // "BANKNIFTY", 
+    "RELIANCE",
+    // "TCS", 
+    // "INFY"
+];
 
 export const StockSelector: FC = () => {
     const { currentSymbol, setSymbol } = useMarketStore();

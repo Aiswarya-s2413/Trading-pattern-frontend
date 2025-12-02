@@ -43,7 +43,8 @@ const ChartContainer: FC = () => {
                 <div className="h-4 w-px bg-slate-700 mx-2" />
 
                 <span className="text-slate-400 text-sm font-medium px-2">Timeframe:</span>
-                {(['1m', '1D', '1W'] as const).map((tf) => (
+                {([//'1m', 
+                   '1D', '1W'] as const).map((tf) => (
                     <button
                         key={tf}
                         onClick={() => setInterval(tf)}

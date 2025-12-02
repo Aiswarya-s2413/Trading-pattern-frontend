@@ -26,7 +26,7 @@ function App() {
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-accent">
           Pattern Recognition Tool
         </h1>
-        <div className="text-slate-400 text-sm">V0.0.0</div>
+        <div className="text-slate-400 text-sm">V0.0.1</div>
       </header>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">

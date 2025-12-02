@@ -26,6 +26,7 @@ export const LightweightChart: FC<LightweightChartProps> = ({ data, lastCandle, 
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+    const isFirstLoad = useRef(true);
 
     const {
         backgroundColor = '#1e222d',
@@ -81,7 +82,10 @@ export const LightweightChart: FC<LightweightChartProps> = ({ data, lastCandle, 
     useEffect(() => {
         if (seriesRef.current) {
             seriesRef.current.setData(convertToChartData(data));
-            if (chartRef.current) chartRef.current.timeScale().fitContent();
+            if (chartRef.current && isFirstLoad.current) {
+                chartRef.current.timeScale().fitContent();
+                isFirstLoad.current = false;
+            }
         }
     }, [data]);
 

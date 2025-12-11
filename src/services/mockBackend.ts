@@ -1,8 +1,7 @@
 export interface PatternData {
     pattern: string;
-    timeframe: string;
-    target: number;
-    successWindow: number;
+    weeks: number;
+    parameter: string;
 }
 
 export interface AnalysisResult {
@@ -23,11 +22,11 @@ export const analyzePattern = async (data: PatternData): Promise<AnalysisResult>
             resolve({
                 occurrences: Math.floor(Math.random() * 50) + 20,
                 successRate: Math.min(100, Math.max(0, baseSuccess + randomVar)),
-                avgReturn: data.target + (Math.random() * 2 - 1),
+                avgReturn: 10 + (Math.random() * 2 - 1),
                 history: Array.from({ length: 5 }).map((_, i) => ({
                     date: new Date(Date.now() - i * 86400000 * 10).toISOString().split('T')[0],
                     result: Math.random() > 0.3 ? 'success' : 'fail',
-                    return: Math.random() * (data.target + 2)
+                    return: Math.random() * (10 + 2)
                 }))
             });
         }, 1500);

@@ -8,13 +8,12 @@ interface PatternFormProps {
 
 const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
     const [pattern, setPattern] = useState('bowl');
-    const [timeframe, setTimeframe] = useState('4h');
-    const [target, setTarget] = useState(5);
-    const [successWindow, setSuccessWindow] = useState(10);
+    const [weeks, setWeeks] = useState(52);
+    const [parameter, setParameter] = useState('ema21');
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        onAnalyze({ pattern, timeframe, target, successWindow });
+        onAnalyze({ pattern, weeks, parameter });
     };
 
     return (
@@ -29,57 +28,35 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none"
                 >
                     <option value="bowl">Bowl Pattern</option>
-                    <option value="cup_handle">Narrow Range</option>
-                    {/* <option value="double_bottom">Double Bottom</option>
-                    <option value="flag">Bull Flag</option> */}
+                    <option value="nrb">NRB Pattern</option>
                 </select>
             </div>
 
             <div className="mb-4">
-                <label className="block text-sm font-medium mb-2 text-slate-300">Timeframe</label>
-                <select
-                    value={timeframe}
-                    onChange={(e) => setTimeframe(e.target.value)}
+                <label className="block text-sm font-medium mb-2 text-slate-300">Weeks (1-100)</label>
+                <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={weeks}
+                    onChange={(e) => setWeeks(Number(e.target.value))}
                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none"
-                >
-                    <option value="15m">15 Minutes</option>
-                    <option value="1h">1 Hour</option>
-                    <option value="4h">4 Hours</option>
-                    <option value="1d">1 Day</option>
-                </select>
-            </div>
-
-            <div className="mb-4">
-                <label className="block text-sm font-medium mb-2 text-slate-300">Success Window (Candles)</label>
-                <select
-                    value={successWindow}
-                    onChange={(e) => setSuccessWindow(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none"
-                >
-                    <option value={5}>5 Candles</option>
-                    <option value={10}>10 Candles</option>
-                    <option value={20}>20 Candles</option>
-                    <option value={50}>50 Candles</option>
-                </select>
+                />
             </div>
 
             <div className="mb-6">
-                <label className="block text-sm font-medium mb-2 text-slate-300">Target Uptrend (%)</label>
-                <div className="flex gap-4">
-                    {[2, 5, 10].map((val) => (
-                        <label key={val} className="flex items-center cursor-pointer">
-                            <input
-                                type="radio"
-                                name="target"
-                                value={val}
-                                checked={target === val}
-                                onChange={() => setTarget(val)}
-                                className="mr-2 text-brand-primary focus:ring-brand-primary"
-                            />
-                            {val}%
-                        </label>
-                    ))}
-                </div>
+                <label className="block text-sm font-medium mb-2 text-slate-300">Parameter</label>
+                <select
+                    value={parameter}
+                    onChange={(e) => setParameter(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none"
+                >
+                    <option value="ema21">EMA 21</option>
+                    <option value="ema50">EMA 50</option>
+                    <option value="ema200">EMA 200</option>
+                    <option value="rsc30">RSC 30</option>
+                    <option value="rsc500">RSC 500</option>
+                </select>
             </div>
 
             <button

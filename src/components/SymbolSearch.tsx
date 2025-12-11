@@ -11,6 +11,8 @@ interface SymbolResult {
     symbol: string;
     name: string;
     type: string;
+    sector?: string | null;
+    sector_id?: number | null;
 }
 
 interface SymbolResponse {
@@ -41,18 +43,13 @@ export function SymbolSearch() {
     }, [query]);
 
     // Initial load (optional, maybe not needed if we only search on type)
-    // But user might want to see some default or recent?
-    // User said "depending on the user types we send request...". 
     // And "By default we will show sensex" (this refers to initial state of chart, solved by store default).
 
     // Let's also support fetching default list if query is empty? 
-    // "where we can search the letters" implies search driven.
-    // I'll stick to search driven for now.
-
     const fetchSymbols = async (searchTerm: string) => {
         setLoading(true);
         try {
-            // Using logic from prompt: /api/symbols/?q=a&page=2
+
             // We'll just fetch page 1 for now. Infinite scroll can be added if needed but ScrollArea + 50 results is usually okay for MVP first step.
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/symbols/?q=${encodeURIComponent(searchTerm)}`);
             if (!response.ok) throw new Error("Failed to search symbols");
@@ -105,9 +102,16 @@ export function SymbolSearch() {
                                     <button
                                         key={item.id}
                                         onClick={() => handleSelect(item.symbol)}
-                                        className="flex flex-col items-start rounded-md px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left"
+                                        className="flex flex-col items-start rounded-md px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left w-full"
                                     >
-                                        <span className="font-semibold text-brand-primary">{item.symbol}</span>
+                                        <div className="flex w-full justify-between items-center mb-0.5">
+                                            <span className="font-semibold text-brand-primary">{item.symbol}</span>
+                                            {item.sector && (
+                                                <span className="text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
+                                                    {item.sector}
+                                                </span>
+                                            )}
+                                        </div>
                                         <span className="text-xs text-slate-500">{item.name}</span>
                                     </button>
                                 ))}

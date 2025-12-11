@@ -4,7 +4,6 @@ import { LightweightChart } from './LightweightChart';
 import { useMarketStore } from '../store/marketStore';
 import { SymbolSearch } from './SymbolSearch';
 import TradingViewChart from './pattern/TradingViewChart';
-import clsx from 'clsx';
 
 const ChartContainer: FC = () => {
     const {

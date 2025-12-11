@@ -58,7 +58,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         if (!chartRef.current) {
             const chart = createChart(chartContainerRef.current, {
                 width: chartContainerRef.current.clientWidth,
-                height: 500,
+                height: chartContainerRef.current.clientHeight,
                 layout: {
                     background: { type: ColorType.Solid, color: "#1e222d" },
                     textColor: "#d1d4dc",

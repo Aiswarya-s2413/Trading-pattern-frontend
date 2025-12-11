@@ -2,7 +2,7 @@ import { useEffect, type FC } from 'react';
 import { LightweightChart } from './LightweightChart';
 // import { subscribeToLiveData } from '../services/TrueDataService';
 import { useMarketStore } from '../store/marketStore';
-import { StockSelector } from './StockSelector';
+import { SymbolSearch } from './SymbolSearch';
 
 const ChartContainer: FC = () => {
     const {
@@ -38,24 +38,24 @@ const ChartContainer: FC = () => {
     return (
         <div className="h-full w-full bg-dark-card rounded-lg shadow-lg overflow-hidden border border-slate-700 relative flex flex-col">
             <div className="flex items-center gap-4 p-2 border-b border-slate-700 bg-dark-bg">
-                <StockSelector />
+                <SymbolSearch />
 
                 <div className="h-4 w-px bg-slate-700 mx-2" />
 
                 <span className="text-slate-400 text-sm font-medium px-2">Timeframe:</span>
                 {([//'1m', 
-                   '1D', '1W'] as const).map((tf) => (
-                    <button
-                        key={tf}
-                        onClick={() => setInterval(tf)}
-                        className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${currentInterval === tf
-                            ? 'bg-brand-primary text-white'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                            }`}
-                    >
-                        {tf}
-                    </button>
-                ))}
+                    '1D', '1W'] as const).map((tf) => (
+                        <button
+                            key={tf}
+                            onClick={() => setInterval(tf)}
+                            className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${currentInterval === tf
+                                ? 'bg-brand-primary text-white'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                                }`}
+                        >
+                            {tf}
+                        </button>
+                    ))}
                 {lastCandle && (
                     <div className="ml-auto flex gap-4 text-xs font-mono text-slate-300 px-2">
                         <span>O: {lastCandle.open.toFixed(2)}</span>

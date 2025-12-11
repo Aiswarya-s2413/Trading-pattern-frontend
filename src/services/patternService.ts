@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // const API_BASE_URL = "http://localhost:8000/api"; 
-const API_BASE_URL = "https://trading.aiswaryasathyan.space/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 // Define interfaces for data structure received from the backend
 export interface PriceData {
@@ -105,5 +105,24 @@ export const fetchPatternScanData = async (
         }
         console.error("Network or other error:", error);
         throw new Error("Network or other error during API call");
+    }
+};
+
+export interface Week52HighResponse {
+    scrip: string;
+    "52week_high": number | null;
+    cutoff_date: string;
+}
+
+export const fetch52WeekHigh = async (scrip: string): Promise<Week52HighResponse> => {
+    try {
+        const response = await axios.get<Week52HighResponse>(
+            `${API_BASE_URL}/52week-high/`,
+            { params: { scrip } }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching 52-week high:", error);
+        throw error;
     }
 };

@@ -4,6 +4,7 @@ import { useMarketStore } from '../store/marketStore';
 const STOCKS = [
     // "NIFTY 50", 
     // "BANKNIFTY", 
+    "SENSEX",
     "RELIANCE",
     // "TCS", 
     // "INFY"

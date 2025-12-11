@@ -10,111 +10,30 @@ export interface OHLCVData {
 }
 
 /** Generates historical OHLCV mock data */
+/** Fetches historical OHLCV data from the API */
 export const fetchTrueDataHistory = async (
     symbol: string,
     interval: "1D" | "1W" | "1m"
 ): Promise<OHLCVData[]> => {
+    console.log(`Fetching real data for ${symbol} @ ${interval}`);
 
-    console.log(`Generating mock data for ${symbol} @ ${interval}`);
+    try {
+        const dailyData = await fetchPriceHistory(symbol);
 
-    if (symbol === "RELIANCE") {
-        if (interval === "1D") {
-            try {
-                return await fetchRelianceData();
-            } catch (error) {
-                console.error("Failed to fetch real data, falling back to mock", error);
-            }
-        } else if (interval === "1W") {
-            try {
-                const dailyData = await fetchRelianceData();
-                return aggregateDailyToWeekly(dailyData);
-            } catch (error) {
-                console.error("Failed to fetch real data for weekly aggregation, falling back to mock", error);
-            }
-        }
-    }
-
-    await new Promise(r => setTimeout(r, 300)); // simulate API delay
-
-    const data: OHLCVData[] = [];
-
-    // Start from 2 days ago at midnight UTC to ensure we never overlap with today's live candle
-    let currentDate = new Date();
-
-    let currentPrice = 15000; // Nifty-like price
-
-    const isDaily = interval === "1D";
-    const isMinute = interval === "1m";
-
-    // For minute data, we want more points (e.g., last 24 hours = 1440 points)
-    // For daily/weekly, we use the existing logic
-    const iterations = isMinute ? 1440 : (isDaily ? 365 : 52);
-
-    const today = new Date();
-    // For 1D/1W, normalize to midnight. For 1m, we want up to the current minute.
-    if (!isMinute) {
-        today.setUTCHours(0, 0, 0, 0);
-    } else {
-        today.setSeconds(0, 0);
-    }
-
-    // Adjust start date based on interval
-    if (isMinute) {
-        // Start 24 hours ago
-        currentDate = new Date(today.getTime() - (iterations * 60 * 1000));
-    } else {
-        // Existing logic for 1D/1W
-        currentDate = new Date(today);
-        currentDate.setUTCHours(0, 0, 0, 0);
-        currentDate.setDate(currentDate.getDate() - 2);
-        currentDate.setFullYear(currentDate.getFullYear() - 1);
-    }
-
-    // Reset price for minute data to be realistic
-    if (isMinute) currentPrice = 15000;
-
-    const daysToStep = isDaily ? 1 : 7;
-
-    for (let i = 0; i < iterations; i++) {
-        // Stop if we've reached the cutoff time
-        if (currentDate.getTime() >= today.getTime()) break;
-
-        // Skip weekends for daily data (not needed for minute data in this simple mock)
-        if (isDaily) {
-            const day = currentDate.getDay();
-            if (day === 0) currentDate.setDate(currentDate.getDate() + 1);
-            else if (day === 6) currentDate.setDate(currentDate.getDate() + 2);
+        if (interval === "1W") {
+            return aggregateDailyToWeekly(dailyData);
         }
 
-        const volatility = isMinute ? 5 : (isDaily ? 100 : 300);
-        const change = (Math.random() - 0.5) * volatility;
+        // Return daily data for 1D (and 1m for now if API only supports daily, 
+        // though typically 1m would need a different endpoint or parameter)
+        // Since the prompt purely requested using that specific endpoint which returns daily data usually,
+        // we'll return what we get.
+        return dailyData;
 
-        const open = currentPrice;
-        const close = open + change;
-        const high = Math.max(open, close) + Math.random() * (volatility / 2);
-        const low = Math.min(open, close) - Math.random() * (volatility / 2);
-        const volume = Math.floor(Math.random() * (isMinute ? 1000 : 1_000_000)) + (isMinute ? 500 : 500_000);
-
-        data.push({
-            time: Math.floor(currentDate.getTime() / 1000),
-            open: parseFloat(open.toFixed(2)),
-            high: parseFloat(high.toFixed(2)),
-            low: parseFloat(low.toFixed(2)),
-            close: parseFloat(close.toFixed(2)),
-            volume
-        });
-
-        currentPrice = close;
-
-        // Advance time
-        if (isMinute) {
-            currentDate.setTime(currentDate.getTime() + 60 * 1000);
-        } else {
-            currentDate.setDate(currentDate.getDate() + daysToStep);
-        }
+    } catch (error) {
+        console.error(`Failed to fetch real data for ${symbol}`, error);
+        throw error; // Re-throw to let the caller handle it (e.g. show error state)
     }
-
-    return data;
 };
 
 export type CandleCallback = (candle: OHLCVData) => void;
@@ -193,22 +112,35 @@ export type CandleCallback = (candle: OHLCVData) => void;
 //     };
 // };
 
-const fetchRelianceData = async (): Promise<OHLCVData[]> => {
-    const response = await fetch('https://trading.aiswaryasathyan.space/api/price-history/?scrip=RELIANCE.NS&years=10');
+const fetchPriceHistory = async (symbol: string): Promise<OHLCVData[]> => {
+    // const response = await fetch(`https://trading.aiswaryasathyan.space/api/price-history/?scrip=${symbol}.NS&years=10`);
+    const response = await fetch(`http://127.0.0.1:8000/api/price-history/?scrip=${symbol}`);
+
     if (!response.ok) {
         throw new Error(`API Error: ${response.statusText}`);
     }
     const json = await response.json();
 
     // Map API response to OHLCVData
-    // API format: { time: number, open: number, high: number, low: number, close: number }
-    // Our format: same
-    return json.price_data.map((item: any) => ({
-        time: item.time,
+    // API format: { scrip: string, price_data: [{ time: number, open: number, high: number, low: number, close: number }, ...] }
+
+    if (!json.price_data || !Array.isArray(json.price_data)) {
+        throw new Error("Invalid API response format: price_data missing or not an array");
+    }
+
+    const data: OHLCVData[] = json.price_data.map((item: any) => ({
+        // Backend returns timestamp for 00:00 IST, which is 18:30 UTC previous day.
+        // We add 19800 seconds (5.5 hours) to align it to 00:00 UTC of the Trade Date.
+        time: item.time + 19800,
         open: item.open,
         high: item.high,
         low: item.low,
         close: item.close,
-        volume: 0 // API doesn't seem to return volume in the snippet, defaulting to 0
+        volume: 0
     }));
+
+    // Ensure data is sorted by time ascending
+    data.sort((a, b) => a.time - b.time);
+
+    return data;
 };

@@ -15,7 +15,7 @@ interface MarketState {
 }
 
 export const useMarketStore = create<MarketState>((set, get) => ({
-    currentSymbol: "RELIANCE",
+    currentSymbol: "SENSEX",
     currentInterval: "1D",
     dataCache: {},
     isLoading: false,

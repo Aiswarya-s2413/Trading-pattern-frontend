@@ -53,7 +53,7 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
                     onChange={(e) => setParameter(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none"
                 >
-                    <option value="">None</option>
+                    <option value="">Closing Price</option>
                     <option value="ema21">EMA 21</option>
                     <option value="ema50">EMA 50</option>
                     <option value="ema200">EMA 200</option>

@@ -21,6 +21,8 @@ interface TradingViewChartProps {
     chartTitle: string;
     parameterSeriesName?: string | null;
     parameterSeriesData?: SeriesPoint[];
+    parameterSeriesDataEma5?: SeriesPoint[];  // 🆕 RED LINE
+    parameterSeriesDataEma10?: SeriesPoint[]; // 🆕 BLUE LINE
     week52High?: number | null;
 }
 
@@ -30,12 +32,19 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     chartTitle,
     parameterSeriesName,
     parameterSeriesData,
+    parameterSeriesDataEma5,    // 🆕
+    parameterSeriesDataEma10,   // 🆕
     week52High,
 }) => {
     const chartContainerRef = useRef<HTMLDivElement | null>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
     const parameterLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    
+    // 🆕 Additional series for RSC30
+    const parameterLineSeriesEma5Ref = useRef<ISeriesApi<"Line"> | null>(null);
+    const parameterLineSeriesEma10Ref = useRef<ISeriesApi<"Line"> | null>(null);
+    
     const week52HighSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
     // Bowl curves: one line series per bowl pattern
@@ -77,7 +86,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
             chartRef.current = chart;
 
-            // functional API: add candlestick series (will be hidden if parameter series is used)
+            // Candlestick series
             candlestickSeriesRef.current = chart.addSeries(CandlestickSeries, {
                 upColor: "#26a69a",
                 downColor: "#ef5350",
@@ -86,26 +95,44 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 wickDownColor: "#ef5350",
             });
 
-            // Create parameter line series (will be used when parameter is not "close")
-            // Color will be updated based on parameter type
+            // Primary parameter line series (gray for RSC ratio, or single line for EMA)
             parameterLineSeriesRef.current = chart.addSeries(LineSeries, {
-                color: "#2962FF", // Default blue, will be updated
+                color: "#2962FF",
                 lineWidth: 2,
                 lineStyle: 0,
                 crosshairMarkerVisible: true,
                 priceLineVisible: false,
             });
 
-            // Line for 52-week high (horizontal)
-            week52HighSeriesRef.current = chart.addSeries(LineSeries, {
-                color: "#f59e0b", // amber
+            // 🆕 Additional RSC lines (EMA5 = RED, EMA10 = BLUE)
+            parameterLineSeriesEma5Ref.current = chart.addSeries(LineSeries, {
+                color: "rgba(255, 82, 82, 0.9)", // RED
                 lineWidth: 2,
-                lineStyle: 1, // dashed
+                lineStyle: 0,
+                crosshairMarkerVisible: true,
+                priceLineVisible: false,
+                visible: false, // Hidden by default
+            });
+
+            parameterLineSeriesEma10Ref.current = chart.addSeries(LineSeries, {
+                color: "rgba(33, 150, 243, 0.9)", // BLUE
+                lineWidth: 2,
+                lineStyle: 0,
+                crosshairMarkerVisible: true,
+                priceLineVisible: false,
+                visible: false, // Hidden by default
+            });
+
+            // 52-week high line
+            week52HighSeriesRef.current = chart.addSeries(LineSeries, {
+                color: "#f59e0b",
+                lineWidth: 2,
+                lineStyle: 1,
                 crosshairMarkerVisible: false,
                 priceLineVisible: false,
             });
 
-            // Create markers plugins for both series
+            // Create markers plugins
             if (candlestickSeriesRef.current && !candlestickMarkersRef.current) {
                 candlestickMarkersRef.current = createSeriesMarkers(
                     candlestickSeriesRef.current,
@@ -123,56 +150,128 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         const chart = chartRef.current;
         const candlestickSeries = candlestickSeriesRef.current;
         const parameterLineSeries = parameterLineSeriesRef.current;
+        const parameterLineSeriesEma5 = parameterLineSeriesEma5Ref.current;
+        const parameterLineSeriesEma10 = parameterLineSeriesEma10Ref.current;
         const week52HighSeries = week52HighSeriesRef.current;
 
         if (
             !chart ||
             !candlestickSeries ||
             !parameterLineSeries ||
+            !parameterLineSeriesEma5 ||
+            !parameterLineSeriesEma10 ||
             !week52HighSeries
         )
             return;
 
-        // Determine if we should show line graph or candles
+        // === 2. Determine display mode ===
         const showParameterLine =
             parameterSeriesName &&
             parameterSeriesData &&
             parameterSeriesData.length > 0;
 
-        // === 2. Update price data ===
+        // 🆕 Check if RSC30 (multi-line mode)
+        const isRSC30 = parameterSeriesName === 'rsc30';
+
+        // === 3. Update price data ===
         if (priceData.length > 0 || (showParameterLine && parameterSeriesData)) {
             // Show/hide series based on parameter selection
             if (showParameterLine) {
-                // Hide candlesticks, show parameter line
-                candlestickSeries.applyOptions({ visible: false });
-
-                // Set line color based on parameter type
-                const lineColors: Record<string, string> = {
-                    ema21: "#00E5FF",
-                    ema50: "#2962FF",
-                    ema200: "#7C4DFF",
-                    rsc30: "#00E676",
-                    rsc500: "#FFD600",
-                };
-                const lineColor = lineColors[parameterSeriesName || ""] || "#2962FF";
-
-                parameterLineSeries.applyOptions({
-                    visible: true,
-                    color: lineColor,
+                // Hide candlesticks, show parameter line(s)
+                candlestickSeries.applyOptions({ 
+                    visible: false,
+                    priceScaleId: '' // 🆕 Remove from price scale calculation
                 });
 
-                // Update parameter line data
-                if (parameterSeriesData && parameterSeriesData.length > 0) {
-                    const formattedLineData = parameterSeriesData.map((item) => ({
-                        time: item.time as Time,
-                        value: item.value,
-                    }));
-                    parameterLineSeries.setData(formattedLineData);
+                // 🆕 RSC30 Mode: Show 3 lines (Gray, Red, Blue)
+                if (isRSC30) {
+                    // GRAY LINE - RSC Ratio
+                    parameterLineSeries.applyOptions({
+                        visible: true,
+                        color: "rgba(128, 128, 128, 0.8)",
+                        lineWidth: 1,
+                        priceScaleId: 'right', // 🆕 Ensure on right scale
+                    });
+
+                    if (parameterSeriesData && parameterSeriesData.length > 0) {
+                        const formattedLineData = parameterSeriesData.map((item) => ({
+                            time: item.time as Time,
+                            value: item.value,
+                        }));
+                        parameterLineSeries.setData(formattedLineData);
+                    }
+
+                    // RED LINE - EMA5
+                    if (parameterSeriesDataEma5 && parameterSeriesDataEma5.length > 0) {
+                        parameterLineSeriesEma5.applyOptions({ 
+                            visible: true,
+                            priceScaleId: 'right' // 🆕 Ensure on right scale
+                        });
+                        const formattedEma5Data = parameterSeriesDataEma5.map((item) => ({
+                            time: item.time as Time,
+                            value: item.value,
+                        }));
+                        parameterLineSeriesEma5.setData(formattedEma5Data);
+                    } else {
+                        parameterLineSeriesEma5.applyOptions({ visible: false });
+                        parameterLineSeriesEma5.setData([]);
+                    }
+
+                    // BLUE LINE - EMA10
+                    if (parameterSeriesDataEma10 && parameterSeriesDataEma10.length > 0) {
+                        parameterLineSeriesEma10.applyOptions({ 
+                            visible: true,
+                            priceScaleId: 'right' // 🆕 Ensure on right scale
+                        });
+                        const formattedEma10Data = parameterSeriesDataEma10.map((item) => ({
+                            time: item.time as Time,
+                            value: item.value,
+                        }));
+                        parameterLineSeriesEma10.setData(formattedEma10Data);
+                    } else {
+                        parameterLineSeriesEma10.applyOptions({ visible: false });
+                        parameterLineSeriesEma10.setData([]);
+                    }
+                } else {
+                    // Single-line mode (EMA21, EMA50, EMA200, etc.)
+                    parameterLineSeriesEma5.applyOptions({ visible: false });
+                    parameterLineSeriesEma10.applyOptions({ visible: false });
+                    parameterLineSeriesEma5.setData([]);
+                    parameterLineSeriesEma10.setData([]);
+
+                    // Set color based on parameter type
+                    const lineColors: Record<string, string> = {
+                        ema21: "#00E5FF",
+                        ema50: "#2962FF",
+                        ema200: "#7C4DFF",
+                        rsc500: "#FFD600",
+                    };
+                    const lineColor = lineColors[parameterSeriesName || ""] || "#2962FF";
+
+                    parameterLineSeries.applyOptions({
+                        visible: true,
+                        color: lineColor,
+                        lineWidth: 2,
+                        priceScaleId: 'right', // 🆕 Ensure on right scale
+                    });
+
+                    if (parameterSeriesData && parameterSeriesData.length > 0) {
+                        const formattedLineData = parameterSeriesData.map((item) => ({
+                            time: item.time as Time,
+                            value: item.value,
+                        }));
+                        parameterLineSeries.setData(formattedLineData);
+                    }
                 }
             } else {
-                // Show candlesticks, hide parameter line
-                candlestickSeries.applyOptions({ visible: true });
+                // Show candlesticks, hide parameter lines
+                candlestickSeries.applyOptions({ 
+                    visible: true,
+                    priceScaleId: 'right' // 🆕 Add back to price scale
+                });
                 parameterLineSeries.applyOptions({ visible: false });
+                parameterLineSeriesEma5.applyOptions({ visible: false });
+                parameterLineSeriesEma10.applyOptions({ visible: false });
 
                 // Update candlestick data
                 const formattedPriceData = priceData.map((item) => ({
@@ -185,7 +284,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 candlestickSeries.setData(formattedPriceData);
             }
 
-            // Use the appropriate series for bowl calculations (use price data for candles, line data for parameter)
+            // Data for bowl/marker calculations
             const dataForCalculations =
                 showParameterLine && parameterSeriesData
                     ? parameterSeriesData.map((item) => ({
@@ -203,10 +302,10 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                         close: item.close,
                     }));
 
-            // === 3. Pattern logic: Bowl vs NRB ===
+            // === 4. Pattern logic: Bowl vs NRB ===
             const isBowlPattern = chartTitle.toLowerCase().includes("bowl");
 
-            // --- Bowl markers detection ---
+            // Bowl markers
             const bowlMarkers = markers.filter((m) => {
                 const mm: any = m;
                 if (isBowlPattern && mm.pattern_id != null) return true;
@@ -223,14 +322,14 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 bowls.get(id)!.push(marker);
             });
 
-            // Fallback grouping if pattern_id missing
+            // Fallback grouping
             if (bowls.size === 1 && bowls.has(-1) && bowlMarkers.length > 0) {
                 bowls.clear();
                 const sortedMarkers = [...bowlMarkers].sort(
                     (a, b) => Number((a as any).time) - Number((b as any).time)
                 );
 
-                const TIME_CLUSTER_THRESHOLD = 30 * 24 * 60 * 60; // 30 days in seconds
+                const TIME_CLUSTER_THRESHOLD = 30 * 24 * 60 * 60;
                 let clusterId = 0;
                 let lastTime = 0;
 
@@ -248,7 +347,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 });
             }
 
-            // --- Clear old bowl series that no longer exist ---
+            // Clear old bowl series
             bowlSeriesRefs.current.forEach((series, key) => {
                 const id = Number(key);
                 if (!bowls.has(id)) {
@@ -256,7 +355,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 }
             });
 
-            // --- Draw bowl curves (U-shaped parabolas) ---
+            // Draw bowl curves
             const bowlColors = [
                 "#2962FF",
                 "#FF6D00",
@@ -301,7 +400,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     });
                 }
 
-                // Extend bowl span a bit on both sides
                 const firstTime = Number((patternMarkers[0] as any).time);
                 const lastTime = Number(
                     (patternMarkers[patternMarkers.length - 1] as any).time
@@ -333,17 +431,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
                 const lineData = spanCandles.map((c, idx) => {
                     const t = idx / Math.max(1, spanCandles.length - 1);
-
                     const distanceFromBottom = t - bottomPosition;
                     const parabola = distanceFromBottom * distanceFromBottom;
-
                     const maxDistance = Math.max(bottomPosition, 1 - bottomPosition);
                     const maxParabola = maxDistance * maxDistance;
-
                     const normalizedParabola =
                         maxParabola > 0 ? parabola / maxParabola : 0;
                     const bowlDepth = 1 - normalizedParabola;
-
                     const edgeInterpolation = startLow * (1 - t) + endLow * t;
                     const curvedValue =
                         edgeInterpolation + (minLow - edgeInterpolation) * bowlDepth * 0.8;
@@ -357,7 +451,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 bowlSeries.setData(lineData);
             });
 
-            // === 4. NRB range lines (horizontal high/low per regime) ===
+            // === 5. NRB range lines ===
             const nrbMarkersWithRange = markers.filter((m: any) => {
                 const isBowlMarker =
                     (isBowlPattern && m.pattern_id != null) ||
@@ -370,7 +464,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 return !isBowlMarker && hasRange;
             });
 
-            // Clear old NRB range series
             nrbRangeSeriesRefs.current.forEach((series) => {
                 series.setData([]);
             });
@@ -379,14 +472,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 const id =
                     marker.nrb_id != null ? String(marker.nrb_id) : String(marker.time);
 
-                // High line
                 const highKey = `${id}-high`;
                 let highSeries = nrbRangeSeriesRefs.current.get(highKey);
                 if (!highSeries) {
                     highSeries = chart.addSeries(LineSeries, {
                         color: "#888888",
                         lineWidth: 1,
-                        lineStyle: 1, // dashed
+                        lineStyle: 1,
                         crosshairMarkerVisible: false,
                         priceLineVisible: false,
                     });
@@ -403,14 +495,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     },
                 ]);
 
-                // Low line
                 const lowKey = `${id}-low`;
                 let lowSeries = nrbRangeSeriesRefs.current.get(lowKey);
                 if (!lowSeries) {
                     lowSeries = chart.addSeries(LineSeries, {
                         color: "#888888",
                         lineWidth: 1,
-                        lineStyle: 1, // dashed
+                        lineStyle: 1,
                         crosshairMarkerVisible: false,
                         priceLineVisible: false,
                     });
@@ -428,7 +519,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 ]);
             });
 
-            // === 5. NRB / other markers as dots/arrows ===
+            // === 6. Other markers ===
             const otherMarkers: SeriesMarker<Time>[] = markers
                 .filter((m: any) => {
                     const isBowlMarker =
@@ -441,7 +532,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     let shape: SeriesMarker<Time>["shape"] =
                         (marker.shape as any) || "circle";
 
-                    // Neon arrows for NRB
                     const isNRBMarker =
                         marker.direction === "Bullish Break" ||
                         marker.direction === "Bearish Break";
@@ -462,12 +552,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                             | "inBar",
                         color,
                         shape,
-                        // Remove text for NRB markers - only show arrows
                         text: isNRBMarker ? "" : marker.text || "",
                     };
                 });
 
-            // --- 52-week high horizontal line (spans current data range) ---
+            // 52-week high line
             if (week52High != null) {
                 const spanData =
                     dataForCalculations.length > 0
@@ -499,7 +588,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 week52HighSeries.applyOptions({ visible: false });
             }
 
-            // Attach markers to the visible series
+            // Attach markers
             if (showParameterLine && parameterLineMarkersRef.current) {
                 parameterLineMarkersRef.current.setMarkers(otherMarkers);
             } else if (!showParameterLine && candlestickMarkersRef.current) {
@@ -508,11 +597,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
             chart.timeScale().fitContent();
         } else {
-            // No price data: clear everything
+            // No data: clear everything
             candlestickSeries.setData([]);
-            if (parameterLineSeries) {
-                parameterLineSeries.setData([]);
-            }
+            parameterLineSeries.setData([]);
+            parameterLineSeriesEma5.setData([]);
+            parameterLineSeriesEma10.setData([]);
             week52HighSeries.setData([]);
             candlestickMarkersRef.current?.setMarkers([]);
             parameterLineMarkersRef.current?.setMarkers([]);
@@ -520,7 +609,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             nrbRangeSeriesRefs.current.forEach((series) => series.setData([]));
         }
 
-        // Resize handler
         const handleResize = () => {
             if (chartContainerRef.current && chartRef.current) {
                 chartRef.current.applyOptions({
@@ -539,6 +627,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         chartTitle,
         parameterSeriesName,
         parameterSeriesData,
+        parameterSeriesDataEma5,    // 🆕
+        parameterSeriesDataEma10,   // 🆕
         week52High,
     ]);
 

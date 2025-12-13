@@ -16,6 +16,10 @@ interface MarketState {
     overlaySeries: SeriesPoint[] | null;
     overlaySeriesName: string | null;
     overlayColor: string; // Color for the overlay line
+    
+    // 🆕 Additional RSC series
+    overlaySeriesEma5: SeriesPoint[] | null;
+    overlaySeriesEma10: SeriesPoint[] | null;
 
     setSymbol: (symbol: string) => void;
     setInterval: (interval: "1D" | "1W" | "1m") => void;
@@ -23,7 +27,15 @@ interface MarketState {
     updateLiveCandle: (candle: OHLCVData) => void;
 
     // Pattern actions
-    setPatternData: (markers: Marker[], priceData:PriceData[], series_data?: SeriesPoint[], seriesName?:string | null, overlayColor?: string) => void;
+    setPatternData: (
+        markers: Marker[], 
+        priceData: PriceData[], 
+        series_data?: SeriesPoint[], 
+        seriesName?: string | null, 
+        overlayColor?: string,
+        series_data_ema5?: SeriesPoint[],  // 🆕
+        series_data_ema10?: SeriesPoint[]  // 🆕
+    ) => void;
     resetPatternMode: () => void;
 }
 
@@ -40,6 +52,8 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     overlaySeries: null,
     overlaySeriesName: null,
     overlayColor: '#2962FF',
+    overlaySeriesEma5: null,   // 🆕
+    overlaySeriesEma10: null,  // 🆕
 
     setSymbol: (symbol) => {
         set({ currentSymbol: symbol });
@@ -55,8 +69,6 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         const { currentSymbol, currentInterval, dataCache } = get();
         const cacheKey = `${currentSymbol}-${currentInterval}`;
 
-        // If data is already in cache, don't fetch (or maybe just set loading false if we want to re-verify?)
-        // For now, let's assume cache is valid for the session to avoid refetching on tab switch
         if (dataCache[cacheKey]) {
             return;
         }
@@ -83,11 +95,6 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         const cacheKey = `${currentSymbol}-${currentInterval}`;
         const currentData = dataCache[cacheKey] || [];
 
-        // We don't want to mutate the cache directly in a way that triggers full re-renders of everything if not needed,
-        // but for lightweight charts we usually pass the full array or update via API.
-        // Here we just update the cache so if we switch away and back, we have the latest.
-
-        // Check if the last candle in data matches the live candle's time
         const lastIndex = currentData.length - 1;
         if (lastIndex >= 0) {
             const lastCandle = currentData[lastIndex];
@@ -113,29 +120,36 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         }
     },
 
-setPatternData: (
-    markers,
-    priceData,
-    seriesData = [],
-    seriesName = null,
-    overlayColor = "#2962FF"
-) => {
-    set({
-        patternMode: true,
-        patternMarkers: markers,
-        patternPriceData: priceData,
-        overlaySeries: seriesData.length > 0 ? seriesData : null,
-        overlaySeriesName: seriesName,
-        overlayColor
-    });
-},
+    setPatternData: (
+        markers,
+        priceData,
+        seriesData = [],
+        seriesName = null,
+        overlayColor = "#2962FF",
+        series_data_ema5 = [],   // 🆕
+        series_data_ema10 = []   // 🆕
+    ) => {
+        set({
+            patternMode: true,
+            patternMarkers: markers,
+            patternPriceData: priceData,
+            overlaySeries: seriesData.length > 0 ? seriesData : null,
+            overlaySeriesName: seriesName,
+            overlayColor,
+            overlaySeriesEma5: series_data_ema5.length > 0 ? series_data_ema5 : null,   // 🆕
+            overlaySeriesEma10: series_data_ema10.length > 0 ? series_data_ema10 : null, // 🆕
+        });
+    },
+
     resetPatternMode: () => {
         set({
             patternMode: false,
             patternMarkers: [],
             patternPriceData: [],
             overlaySeriesName: null, 
-            overlaySeries: null
+            overlaySeries: null,
+            overlaySeriesEma5: null,   // 🆕
+            overlaySeriesEma10: null,  // 🆕
         });
     }
 }));

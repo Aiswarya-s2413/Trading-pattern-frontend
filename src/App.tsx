@@ -7,7 +7,6 @@ import { useMarketStore } from './store/marketStore';
 import { ScrollArea } from './components/ui/scroll-area';
 
 function App() {
-  // const [results, setResults] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [week52High, setWeek52High] = useState<number | null | 'unavailable'>(null);
 
@@ -36,7 +35,7 @@ function App() {
       // Call the real backend
       const response = await fetchPatternScanData(
         currentSymbol,
-        data.pattern === 'nrb' ? 'Narrow Range Break' : 'Bowl', // Map internal values to backend expectations
+        data.pattern === 'nrb' ? 'Narrow Range Break' : 'Bowl',
         null, // nrbLookback
         0, // successRate
         data.weeks,
@@ -45,18 +44,16 @@ function App() {
 
       console.log('Normalized Pattern Data:', response);
 
-      // Update the store which will auto-update the chart
+      // Update the store with all series data (including RSC EMA5 and EMA10)
       setPatternData(
         response.markers,
         response.price_data,
         response.series_data,
         response.series,
-        // Optional: map parameter to a color, or just use default.
-        // Orange for the series line
+        '#2962FF', // Default overlay color
+        response.series_data_ema5,   // 🆕 RED LINE
+        response.series_data_ema10   // 🆕 BLUE LINE
       );
-
-      // Optionally set some results state if you still use ResultsPanel
-      // setResults(...);
 
     } catch (error) {
       console.error("Analysis failed", error);
@@ -66,12 +63,11 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-bg px-2  py-3 flex flex-col gap-6">
-      <header className="flex justify-between items-center  ">
+    <div className="min-h-screen bg-dark-bg px-2 py-3 flex flex-col gap-6">
+      <header className="flex justify-between items-center">
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-accent">
           Pattern Recognition Tool
         </h1>
-
       </header>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -93,12 +89,11 @@ function App() {
                     : <span className="text-slate-500 text-lg">Loading...</span>}
               </div>
             </div>
-
-            {/* <ResultsPanel results={results} /> */}
           </div>
         </ScrollArea>
       </main>
-      <div className="fixed bottom-2 right-2 text-slate-400 text-sm">v0.0.2</div>
+      
+      <div className="fixed bottom-2 right-2 text-slate-400 text-sm">v0.0.3</div>
     </div>
   );
 }

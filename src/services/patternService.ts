@@ -1,6 +1,5 @@
 import axios from "axios";
 
-// const API_BASE_URL = "http://localhost:8000/api"; 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 
@@ -24,8 +23,8 @@ export interface Marker {
     color: string;
     shape: "arrowUp" | "arrowDown" | "circle" | "square";
     text?: string;
-    pattern_id?: number; // Used for grouping bowl patterns
-    score?: number; // Success score from backend (may be 0/1 in new schema)
+    pattern_id?: number;
+    score?: number;
 
     // NRB RANGE-LINE FIELDS (OPTIONAL)
     range_low?: number | null;
@@ -44,20 +43,21 @@ export interface PatternScanResponse {
     price_data: PriceData[];
     markers: Marker[];
 
-    // 🆕 parameter series info (for EMA/RSC)
+    // Series info (for EMA/RSC)
     series?: string | null;
     series_data?: SeriesPoint[];
+    series_data_ema5?: SeriesPoint[];  // 🆕 RED LINE
+    series_data_ema10?: SeriesPoint[]; // 🆕 BLUE LINE
 }
-
 
 // Function to fetch pattern scan data from your backend
 export const fetchPatternScanData = async (
     scrip: string,
     pattern: string,
-    nrbLookback: number | null, // kept for backward compatibility, backend ignores it
+    nrbLookback: number | null,
     successRate: number | null,
     weeks?: number,
-    series?: string | null // 🆕 ema21 / ema50 / ema200 / rsc30 / rsc500
+    series?: string | null
 ): Promise<PatternScanResponse> => {
     try {
         const params: any = {
@@ -66,18 +66,15 @@ export const fetchPatternScanData = async (
             success_rate: successRate,
         };
 
-        // backend ignores nrb_lookback, but sending it is safe
         if (nrbLookback !== null) {
             params.nrb_lookback = nrbLookback;
         }
 
         if (pattern === "Narrow Range Break" && weeks != null) {
-            // ?weeks=52 etc.
             params.weeks = weeks;
         }
 
         if (series) {
-            // ?series=ema50 etc.
             params.series = series;
         }
 
@@ -106,8 +103,12 @@ export const fetchPatternScanData = async (
         const normalizedSeries = (response.data as any).series ?? series ?? null;
         const normalizedSeriesData: SeriesPoint[] =
             ((response.data as any).series_data as SeriesPoint[]) ?? [];
+        const normalizedSeriesDataEma5: SeriesPoint[] =  // 🆕
+            ((response.data as any).series_data_ema5 as SeriesPoint[]) ?? [];
+        const normalizedSeriesDataEma10: SeriesPoint[] = // 🆕
+            ((response.data as any).series_data_ema10 as SeriesPoint[]) ?? [];
 
-        // Normalize markers - ensure they have the required structure
+        // Normalize markers
         const normalizedData: PatternScanResponse = {
             scrip: response.data.scrip || scrip,
             pattern: response.data.pattern || pattern,
@@ -116,14 +117,10 @@ export const fetchPatternScanData = async (
                 time: marker.time,
                 pattern_id: marker.pattern_id,
                 score: marker.score,
-
-                // Optional fields with defaults
                 position: (marker.position === "overlay" ? "aboveBar" : marker.position) || "belowBar",
                 color: marker.color || "#2196F3",
                 shape: marker.shape || "circle",
                 text: marker.text,
-
-                // NRB RANGE INFO
                 range_low: marker.range_low ?? null,
                 range_high: marker.range_high ?? null,
                 range_start_time: marker.range_start_time ?? null,
@@ -132,9 +129,10 @@ export const fetchPatternScanData = async (
                 direction: marker.direction,
             })),
 
-            // 🆕 series / series_data returned to the caller
             series: normalizedSeries,
             series_data: normalizedSeriesData,
+            series_data_ema5: normalizedSeriesDataEma5,  // 🆕
+            series_data_ema10: normalizedSeriesDataEma10, // 🆕
         };
 
         console.log(
@@ -148,7 +146,11 @@ export const fetchPatternScanData = async (
             "[API] Series:",
             normalizedData.series,
             "Points:",
-            normalizedData.series_data?.length ?? 0
+            normalizedData.series_data?.length ?? 0,
+            "EMA5:",
+            normalizedData.series_data_ema5?.length ?? 0,  // 🆕
+            "EMA10:",
+            normalizedData.series_data_ema10?.length ?? 0  // 🆕
         );
 
         return normalizedData;
@@ -163,7 +165,6 @@ export const fetchPatternScanData = async (
         throw new Error("Network or other error during API call");
     }
 };
-
 
 export interface Week52HighResponse {
     scrip: string;

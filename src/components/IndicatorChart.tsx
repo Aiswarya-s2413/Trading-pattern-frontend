@@ -1,9 +1,26 @@
 import { createChart, ColorType, LineSeries, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 
+export interface SeriesData {
+    time: number;
+    value: number;
+}
+
+export interface SeriesConfig {
+    data: SeriesData[];
+    color: string;
+    lineWidth?: number;
+    title?: string;
+}
+
 export interface IndicatorChartProps {
-    data: { time: number; value: number }[];
+    // Single series (backward compatible)
+    data?: SeriesData[];
     color?: string;
+    
+    // Multi-series support (for RSC30)
+    series?: SeriesConfig[];
+    
     height?: number;
     colors?: {
         backgroundColor?: string;
@@ -19,11 +36,12 @@ export interface IndicatorChartHandle {
 export const IndicatorChart = forwardRef<IndicatorChartHandle, IndicatorChartProps>(({
     data,
     color = '#2962FF',
+    series,
     colors = {}
 }, ref) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
-    const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const seriesRefs = useRef<ISeriesApi<"Line">[]>([]);
     const isFirstLoad = useRef(true);
 
     const {
@@ -54,7 +72,7 @@ export const IndicatorChart = forwardRef<IndicatorChartHandle, IndicatorChartPro
                 textColor,
             },
             width: chartContainerRef.current.clientWidth,
-            height: chartContainerRef.current.clientHeight, // Use container height
+            height: chartContainerRef.current.clientHeight,
             grid: {
                 vertLines: { color: '#2B2B43' },
                 horzLines: { color: '#2B2B43' },
@@ -67,20 +85,44 @@ export const IndicatorChart = forwardRef<IndicatorChartHandle, IndicatorChartPro
 
         chartRef.current = chart;
 
-        const lineSeries = chart.addSeries(LineSeries, {
-            color: color,
-            lineWidth: 2,
-            crosshairMarkerVisible: true,
-        });
+        // Clear previous series
+        seriesRefs.current = [];
 
-        seriesRef.current = lineSeries;
+        // Multi-series mode (RSC30 with 3 lines)
+        if (series && series.length > 0) {
+            series.forEach((s) => {
+                const lineSeries = chart.addSeries(LineSeries, {
+                    color: s.color,
+                    lineWidth: s.lineWidth || 2,
+                    crosshairMarkerVisible: true,
+                } as any);
 
-        const chartData = data.map(d => ({
-            time: d.time as UTCTimestamp,
-            value: d.value
-        }));
+                const chartData = s.data.map(d => ({
+                    time: d.time as UTCTimestamp,
+                    value: d.value
+                }));
 
-        lineSeries.setData(chartData);
+                lineSeries.setData(chartData);
+                seriesRefs.current.push(lineSeries);
+            });
+        } 
+        // Single-series mode (backward compatible for EMA21, EMA50, etc.)
+        else if (data && data.length > 0) {
+            const lineSeries = chart.addSeries(LineSeries, {
+                color: color,
+                lineWidth: 2,
+                crosshairMarkerVisible: true,
+            } as any);
+
+            const chartData = data.map(d => ({
+                time: d.time as UTCTimestamp,
+                value: d.value
+            }));
+
+            lineSeries.setData(chartData);
+            seriesRefs.current.push(lineSeries);
+        }
+
         chart.timeScale().fitContent();
 
         return () => {
@@ -89,24 +131,54 @@ export const IndicatorChart = forwardRef<IndicatorChartHandle, IndicatorChartPro
         };
     }, [backgroundColor, textColor]);
 
-    // Update data and color
+    // Update data when it changes
     useEffect(() => {
-        if (seriesRef.current) {
-            seriesRef.current.applyOptions({ color });
+        if (!chartRef.current) return;
+
+        // Clear existing series
+        seriesRefs.current.forEach(s => chartRef.current?.removeSeries(s));
+        seriesRefs.current = [];
+
+        // Multi-series mode
+        if (series && series.length > 0) {
+            series.forEach((s) => {
+                const lineSeries = chartRef.current!.addSeries(LineSeries, {
+                    color: s.color,
+                    lineWidth: s.lineWidth || 2,
+                    crosshairMarkerVisible: true,
+                } as any);
+
+                const chartData = s.data.map(d => ({
+                    time: d.time as UTCTimestamp,
+                    value: d.value
+                }));
+
+                lineSeries.setData(chartData);
+                seriesRefs.current.push(lineSeries);
+            });
+        }
+        // Single-series mode
+        else if (data && data.length > 0) {
+            const lineSeries = chartRef.current.addSeries(LineSeries, {
+                color: color,
+                lineWidth: 2,
+                crosshairMarkerVisible: true,
+            } as any);
 
             const chartData = data.map(d => ({
                 time: d.time as UTCTimestamp,
                 value: d.value
             }));
 
-            seriesRef.current.setData(chartData);
-
-            if (chartRef.current && isFirstLoad.current && data.length > 0) {
-                chartRef.current.timeScale().fitContent();
-                isFirstLoad.current = false;
-            }
+            lineSeries.setData(chartData);
+            seriesRefs.current.push(lineSeries);
         }
-    }, [data, color]);
+
+        if (isFirstLoad.current && (data?.length || series?.some(s => s.data.length))) {
+            chartRef.current.timeScale().fitContent();
+            isFirstLoad.current = false;
+        }
+    }, [data, color, series]);
 
     return (
         <div ref={chartContainerRef} className="w-full h-full" />

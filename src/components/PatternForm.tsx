@@ -19,7 +19,7 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
     return (
         <form onSubmit={handleSubmit} className="bg-dark-card p-6 rounded-lg shadow-lg border border-slate-700">
             <h2 className="text-xl font-bold mb-4 text-brand-primary">Pattern Configuration</h2>
-
+            
             <div className="mb-4">
                 <label className="block text-sm font-medium mb-2 text-slate-300">Pattern Type</label>
                 <select
@@ -57,18 +57,19 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
                     <option value="ema21">EMA 21</option>
                     <option value="ema50">EMA 50</option>
                     <option value="ema200">EMA 200</option>
-                    <option value="rsc30">RSC 30</option>
-                    <option value="rsc500">RSC 500</option>
+                    <option value="rsc30">RSC SENSEX (Ratio + EMAs)</option>
+                    {/* 🔄 Removed RSC500 */}
                 </select>
             </div>
 
             <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full py-2 px-4 rounded font-bold transition-colors ${isLoading
-                    ? 'bg-slate-600 cursor-not-allowed'
-                    : 'bg-brand-primary hover:bg-blue-600'
-                    }`}
+                className={`w-full py-2 px-4 rounded font-bold transition-colors ${
+                    isLoading
+                        ? 'bg-slate-600 cursor-not-allowed'
+                        : 'bg-brand-primary hover:bg-blue-600'
+                }`}
             >
                 {isLoading ? 'Analyzing...' : 'Analyze Pattern'}
             </button>

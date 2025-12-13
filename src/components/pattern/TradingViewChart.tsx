@@ -81,6 +81,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 },
                 rightPriceScale: {
                     borderColor: "#485c7b",
+                    // 🆕 Default precision for price data
                 },
             });
 
@@ -185,13 +186,23 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
                 // 🆕 RSC30 Mode: Show 3 lines (Gray, Red, Blue)
                 if (isRSC30) {
+                    // Set price scale precision to 4 decimals for RSC
+                    chart.priceScale('right').applyOptions({
+                        autoScale: true,
+                    } as any);
+
                     // GRAY LINE - RSC Ratio
                     parameterLineSeries.applyOptions({
                         visible: true,
                         color: "rgba(128, 128, 128, 0.8)",
                         lineWidth: 1,
-                        priceScaleId: 'right', // 🆕 Ensure on right scale
-                    });
+                        priceScaleId: 'right',
+                        priceFormat: {
+                            type: 'price',
+                            precision: 4,
+                            minMove: 0.0001,
+                        },
+                    } as any);
 
                     if (parameterSeriesData && parameterSeriesData.length > 0) {
                         const formattedLineData = parameterSeriesData.map((item) => ({
@@ -205,8 +216,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     if (parameterSeriesDataEma5 && parameterSeriesDataEma5.length > 0) {
                         parameterLineSeriesEma5.applyOptions({ 
                             visible: true,
-                            priceScaleId: 'right' // 🆕 Ensure on right scale
-                        });
+                            priceScaleId: 'right',
+                            priceFormat: {
+                                type: 'price',
+                                precision: 4,
+                                minMove: 0.0001,
+                            },
+                        } as any);
                         const formattedEma5Data = parameterSeriesDataEma5.map((item) => ({
                             time: item.time as Time,
                             value: item.value,
@@ -221,8 +237,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     if (parameterSeriesDataEma10 && parameterSeriesDataEma10.length > 0) {
                         parameterLineSeriesEma10.applyOptions({ 
                             visible: true,
-                            priceScaleId: 'right' // 🆕 Ensure on right scale
-                        });
+                            priceScaleId: 'right',
+                            priceFormat: {
+                                type: 'price',
+                                precision: 4,
+                                minMove: 0.0001,
+                            },
+                        } as any);
                         const formattedEma10Data = parameterSeriesDataEma10.map((item) => ({
                             time: item.time as Time,
                             value: item.value,
@@ -234,6 +255,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     }
                 } else {
                     // Single-line mode (EMA21, EMA50, EMA200, etc.)
+                    // Reset to default 2 decimals for price-based indicators
+                    chart.priceScale('right').applyOptions({
+                        autoScale: true,
+                    } as any);
+
                     parameterLineSeriesEma5.applyOptions({ visible: false });
                     parameterLineSeriesEma10.applyOptions({ visible: false });
                     parameterLineSeriesEma5.setData([]);
@@ -252,8 +278,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                         visible: true,
                         color: lineColor,
                         lineWidth: 2,
-                        priceScaleId: 'right', // 🆕 Ensure on right scale
-                    });
+                        priceScaleId: 'right',
+                        priceFormat: {
+                            type: 'price',
+                            precision: 2,
+                            minMove: 0.01,
+                        },
+                    } as any);
 
                     if (parameterSeriesData && parameterSeriesData.length > 0) {
                         const formattedLineData = parameterSeriesData.map((item) => ({
@@ -265,6 +296,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 }
             } else {
                 // Show candlesticks, hide parameter lines
+                // Reset to default 2 decimals for candlesticks
+                chart.priceScale('right').applyOptions({
+                    autoScale: true,
+                } as any);
+
                 candlestickSeries.applyOptions({ 
                     visible: true,
                     priceScaleId: 'right' // 🆕 Add back to price scale

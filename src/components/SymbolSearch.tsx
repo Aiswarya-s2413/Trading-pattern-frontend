@@ -127,5 +127,6 @@ export function SymbolSearch() {
                 </div>
             </DialogContent>
         </Dialog>
+        
     );
 }

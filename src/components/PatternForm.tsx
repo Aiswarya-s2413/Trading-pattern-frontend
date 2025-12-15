@@ -11,6 +11,7 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
   const [weeks, setWeeks] = useState(52);
   const [parameter, setParameter] = useState("ema21");
   const [cooldownWeeks, setCooldownWeeks] = useState(4);
+  const [cooldownWeeksInput, setCooldownWeeksInput] = useState("4");
   const [cooldownError, setCooldownError] = useState<string | null>(null);
 
   const validateCooldown = (value: number): string | null => {
@@ -28,8 +29,9 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
 
   const handleCooldownChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    setCooldownWeeksInput(value);
+
     if (value === "") {
-      setCooldownWeeks(4); // Default to 4 if empty
       setCooldownError(null);
       return;
     }
@@ -41,9 +43,14 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
 
     if (!error) {
       setCooldownWeeks(numValue);
-    } else {
-      // Still update the state to show the error, but keep the last valid value
-      // This allows the user to see their input while fixing it
+    }
+  };
+
+  const handleCooldownBlur = () => {
+    if (cooldownWeeksInput === "") {
+      setCooldownWeeksInput("4");
+      setCooldownWeeks(4);
+      setCooldownError(null);
     }
   };
 
@@ -119,8 +126,9 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
               min="1"
               max="100"
               step="1"
-              value={cooldownWeeks}
+              value={cooldownWeeksInput}
               onChange={handleCooldownChange}
+              onBlur={handleCooldownBlur}
               placeholder="4"
               className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
                 cooldownError

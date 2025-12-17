@@ -14,6 +14,10 @@ function App() {
   const [week52High, setWeek52High] = useState<number | null | "unavailable">(
     null
   );
+  const [totalNrbDurationWeeks, setTotalNrbDurationWeeks] = useState<
+    number | null
+  >(null);
+  const [lastPattern, setLastPattern] = useState<"bowl" | "nrb">("bowl");
 
   const { currentSymbol, setPatternData } = useMarketStore();
 
@@ -36,6 +40,13 @@ function App() {
 
   const handleAnalyze = async (data: PatternData) => {
     setIsLoading(true);
+    setLastPattern(data.pattern as "bowl" | "nrb");
+
+    // Reset NRB duration when switching away from NRB
+    if (data.pattern !== "nrb") {
+      setTotalNrbDurationWeeks(null);
+    }
+
     try {
       // Call the real backend
       const response = await fetchPatternScanData(
@@ -50,6 +61,11 @@ function App() {
 
       console.log("Normalized Pattern Data:", response);
 
+      // Capture total NRB duration (if provided by backend)
+      if (data.pattern === "nrb") {
+        setTotalNrbDurationWeeks(response.total_nrb_duration_weeks ?? null);
+      }
+
       // Update the store with all series data (including RSC EMA5 and EMA10)
       setPatternData(
         response.markers,
@@ -58,7 +74,8 @@ function App() {
         response.series,
         "#2962FF", // Default overlay color
         response.series_data_ema5, // 🆕 RED LINE
-        response.series_data_ema10 // 🆕 BLUE LINE
+        response.series_data_ema10, // 🆕 BLUE LINE
+        response.total_nrb_duration_weeks ?? null // 🆕 Total NRB duration for chart overlay
       );
     } catch (error) {
       console.error("Analysis failed", error);
@@ -98,6 +115,21 @@ function App() {
                 )}
               </div>
             </div>
+
+            {lastPattern === "nrb" && (
+              <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
+                <div className="text-slate-400 text-sm mb-1">
+                  Total NRB Duration ({currentSymbol})
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {totalNrbDurationWeeks != null ? (
+                    `${totalNrbDurationWeeks} weeks`
+                  ) : (
+                    <span className="text-slate-500 text-lg">Unavailable</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </main>

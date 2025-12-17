@@ -41,6 +41,8 @@ export interface PatternScanResponse {
   pattern: string;
   price_data: PriceData[];
   markers: Marker[];
+  // 🆕 Total NRB regime duration (in weeks) when pattern is Narrow Range Break
+  total_nrb_duration_weeks?: number | null;
 
   // Series info (for EMA/RSC)
   series?: string | null;
@@ -94,7 +96,8 @@ export const fetchPatternScanData = async (
     );
 
     console.log("[API] Raw response data:", response.data);
-    console.log("[API] Response keys:", Object.keys(response.data));
+    console.log('[API] total_nrb_duration_weeks:', response.data.total_nrb_duration_weeks); // Add this
+    console.log('[API] Response keys:', Object.keys(response.data));
 
     // Backward-compatible markers extraction
     let rawMarkers = response.data.markers;
@@ -118,6 +121,11 @@ export const fetchPatternScanData = async (
     const normalizedSeriesDataEma10: SeriesPoint[] = // 🆕
       ((response.data as any).series_data_ema10 as SeriesPoint[]) ?? [];
 
+    const totalNrbDurationWeeks =
+      (response.data as any).total_nrb_duration_weeks ??
+      (response.data as any).debug?.total_nrb_duration_weeks ??
+      null;
+
     // Normalize markers
     const normalizedData: PatternScanResponse = {
       scrip: response.data.scrip || scrip,
@@ -140,6 +148,8 @@ export const fetchPatternScanData = async (
         nrb_id: marker.nrb_id ?? null,
         direction: marker.direction,
       })),
+
+      total_nrb_duration_weeks: totalNrbDurationWeeks,
 
       series: normalizedSeries,
       series_data: normalizedSeriesData,

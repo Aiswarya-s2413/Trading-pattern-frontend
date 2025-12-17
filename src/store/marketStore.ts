@@ -21,6 +21,9 @@ interface MarketState {
     overlaySeriesEma5: SeriesPoint[] | null;
     overlaySeriesEma10: SeriesPoint[] | null;
 
+    // 🆕 Total NRB duration (weeks) for current pattern scan (if any)
+    totalNrbDurationWeeks: number | null;
+
     setSymbol: (symbol: string) => void;
     setInterval: (interval: "1D" | "1W" | "1m") => void;
     loadData: () => Promise<void>;
@@ -34,7 +37,8 @@ interface MarketState {
         seriesName?: string | null, 
         overlayColor?: string,
         series_data_ema5?: SeriesPoint[],  // 🆕
-        series_data_ema10?: SeriesPoint[]  // 🆕
+        series_data_ema10?: SeriesPoint[], // 🆕
+        totalNrbDurationWeeks?: number | null // 🆕
     ) => void;
     resetPatternMode: () => void;
 }
@@ -54,6 +58,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     overlayColor: '#2962FF',
     overlaySeriesEma5: null,   // 🆕
     overlaySeriesEma10: null,  // 🆕
+    totalNrbDurationWeeks: null,
 
     setSymbol: (symbol) => {
         set({ currentSymbol: symbol });
@@ -127,7 +132,8 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         seriesName = null,
         overlayColor = "#2962FF",
         series_data_ema5 = [],   // 🆕
-        series_data_ema10 = []   // 🆕
+        series_data_ema10 = [],  // 🆕
+        totalNrbDurationWeeks = null // 🆕
     ) => {
         set({
             patternMode: true,
@@ -138,6 +144,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
             overlayColor,
             overlaySeriesEma5: series_data_ema5.length > 0 ? series_data_ema5 : null,   // 🆕
             overlaySeriesEma10: series_data_ema10.length > 0 ? series_data_ema10 : null, // 🆕
+            totalNrbDurationWeeks,
         });
     },
 

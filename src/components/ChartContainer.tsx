@@ -6,7 +6,11 @@ import TradingViewChart from './pattern/TradingViewChart';
 import { Trash } from 'lucide-react';
 import clsx from 'clsx';
 
-const ChartContainer: FC = () => {
+interface ChartContainerProps {
+    selectedNrbGroupId: number | null;
+}
+
+const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
     const {
         currentSymbol,
         currentInterval,

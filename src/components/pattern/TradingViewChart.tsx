@@ -28,6 +28,7 @@ interface TradingViewChartProps {
   parameterSeriesDataEma5?: SeriesPoint[]; // 🆕 RED LINE
   parameterSeriesDataEma10?: SeriesPoint[]; // 🆕 BLUE LINE
   week52High?: number | null;
+  selectedNrbGroupId?: number | null;
 }
 
 const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -39,6 +40,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   parameterSeriesDataEma5, // 🆕
   parameterSeriesDataEma10, // 🆕
   week52High,
+  selectedNrbGroupId,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -560,169 +562,198 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         ]);
       });
 
-      // Draw one big NRB regime "box" covering only the longest contiguous NRB group
+      // Draw NRB regime "boxes" for each contiguous NRB group (backend-provided)
       if (nrbMarkersWithRange.length > 0) {
         type NrbMarker = {
           range_start_time: number;
           range_end_time: number;
           range_low: number;
           range_high: number;
+          nrb_group_id?: number | null;
+          nrb_id?: number | null;
           [key: string]: any;
         };
 
-        // Reproduce backend contiguity logic (20% resistance buffer) to find the
-        // longest contiguous group and draw only that group's bounding box.
-        const sortedNRBs: NrbMarker[] = [
-          ...(nrbMarkersWithRange as unknown as NrbMarker[]),
-        ].sort(
-          (a, b) => Number(a.range_start_time) - Number(b.range_start_time)
-        );
+        // Clear any existing total/group box series from previous renders
+        nrbRangeSeriesRefs.current.forEach((series, key) => {
+          if (key.startsWith("nrb-total-") || key.startsWith("nrb-group-")) {
+            series.setData([]);
+          }
+        });
 
-        const groups: NrbMarker[][] = [];
-        let current: NrbMarker[] = [];
+        // Group NRBs by backend-provided nrb_group_id
+        const groupsById = new Map<number, NrbMarker[]>();
+        (nrbMarkersWithRange as unknown as NrbMarker[]).forEach((m) => {
+          const groupIdRaw = m.nrb_group_id;
+          if (groupIdRaw == null) return;
+          const groupId = Number(groupIdRaw);
+          if (!groupsById.has(groupId)) {
+            groupsById.set(groupId, []);
+          }
+          groupsById.get(groupId)!.push(m);
+        });
 
-        const isContiguous = (nrb1: NrbMarker, nrb2: NrbMarker) => {
-          const r1 = nrb1.range_high;
-          const r2 = nrb2.range_high;
-          if (r1 == null || r2 == null) return false;
-          const buffer = 0.2 * Math.abs(r1);
-          return Math.abs(r2 - r1) <= buffer;
-        };
+        // Only keep groups that have more than one distinct NRB (by nrb_id/time)
+        const validGroups: { groupId: number; markers: NrbMarker[] }[] = [];
+        groupsById.forEach((groupMarkers, groupId) => {
+          const uniqueNrbIds = new Set<number | string>(
+            groupMarkers.map((gm) =>
+              gm.nrb_id != null
+                ? String(gm.nrb_id)
+                : String(gm.range_start_time)
+            )
+          );
+          if (uniqueNrbIds.size > 1) {
+            validGroups.push({ groupId, markers: groupMarkers });
+          }
+        });
 
-        sortedNRBs.forEach((nrb, idx) => {
-          if (idx === 0) {
-            current = [nrb];
+        const boxColor = "#22c55e"; // Tailwind green-500
+
+        validGroups.forEach(({ groupId, markers: groupArr }) => {
+          const startTimes = groupArr
+            .map((m: any) =>
+              m.group_start_time != null
+                ? Number(m.group_start_time)
+                : Number(m.range_start_time)
+            )
+            .filter((v) => !Number.isNaN(v));
+          const endTimes = groupArr
+            .map((m: any) =>
+              m.group_end_time != null
+                ? Number(m.group_end_time)
+                : Number(m.range_end_time)
+            )
+            .filter((v) => !Number.isNaN(v));
+          const lows = groupArr
+            .map((m: any) => Number(m.range_low))
+            .filter((v) => !Number.isNaN(v));
+          const highs = groupArr
+            .map((m: any) => Number(m.range_high))
+            .filter((v) => !Number.isNaN(v));
+
+          if (
+            startTimes.length === 0 ||
+            endTimes.length === 0 ||
+            lows.length === 0 ||
+            highs.length === 0
+          ) {
             return;
           }
-          const prev = sortedNRBs[idx - 1];
-          if (isContiguous(prev, nrb)) {
-            current.push(nrb);
-          } else {
-            groups.push(current);
-            current = [nrb];
-          }
-        });
-        if (current.length > 0) groups.push(current);
 
-        // Find group with longest duration (time span)
-        let bestGroup: NrbMarker[] | null = null;
-        let bestWeeks = -1;
-        groups.forEach((g) => {
-          const start = g[0].range_start_time;
-          const end = g[g.length - 1].range_end_time;
-          if (start == null || end == null) return;
-          const days = (Number(end) - Number(start)) / (60 * 60 * 24);
-          const weeks = Math.floor(days / 7);
-          if (weeks > bestWeeks) {
-            bestWeeks = weeks;
-            bestGroup = g;
-          }
-        });
-
-        const bestGroupAny = bestGroup as unknown;
-
-        if (Array.isArray(bestGroupAny) && bestGroupAny.length > 0) {
-          const groupArr = bestGroupAny as NrbMarker[];
-
-          const earliestStart = Math.min(
-            ...groupArr.map((m: any) => Number(m.range_start_time))
-          );
-          const latestEnd = Math.max(
-            ...groupArr.map((m: any) => Number(m.range_end_time))
-          );
-          const minLow = Math.min(
-            ...groupArr.map((m: any) => Number(m.range_low))
-          );
-          const maxHigh = Math.max(
-            ...groupArr.map((m: any) => Number(m.range_high))
-          );
+          const earliestStart = Math.min(...startTimes);
+          const latestEnd = Math.max(...endTimes);
+          const minLow = Math.min(...lows);
+          const maxHigh = Math.max(...highs);
 
           // Guard: need a real time & price span; and time must be strictly increasing
-          if (earliestStart < latestEnd && minLow < maxHigh) {
-            const boxColor = "#22c55e"; // Tailwind green-500
-
-            // Top horizontal line
-            const topKey = "nrb-total-top";
-            let topSeries = nrbRangeSeriesRefs.current.get(topKey);
-            if (!topSeries) {
-              topSeries = chart.addSeries(LineSeries, {
-                color: boxColor,
-                lineWidth: 2,
-                lineStyle: 0,
-                crosshairMarkerVisible: false,
-                priceLineVisible: false,
-              });
-              nrbRangeSeriesRefs.current.set(topKey, topSeries);
-            }
-            topSeries.setData([
-              { time: earliestStart as Time, value: maxHigh },
-              { time: latestEnd as Time, value: maxHigh },
-            ]);
-
-            // Bottom horizontal line
-            const bottomKey = "nrb-total-bottom";
-            let bottomSeries = nrbRangeSeriesRefs.current.get(bottomKey);
-            if (!bottomSeries) {
-              bottomSeries = chart.addSeries(LineSeries, {
-                color: boxColor,
-                lineWidth: 2,
-                lineStyle: 0,
-                crosshairMarkerVisible: false,
-                priceLineVisible: false,
-              });
-              nrbRangeSeriesRefs.current.set(bottomKey, bottomSeries);
-            }
-            bottomSeries.setData([
-              { time: earliestStart as Time, value: minLow },
-              { time: latestEnd as Time, value: minLow },
-            ]);
-
-            // For vertical lines we must keep time strictly increasing; use ±1s offsets
-            const leftTime1 = earliestStart - 1;
-            const leftTime2 = earliestStart;
-            const rightTime1 = latestEnd;
-            const rightTime2 = latestEnd + 1;
-
-            // Left vertical line
-            const leftKey = "nrb-total-left";
-            let leftSeries = nrbRangeSeriesRefs.current.get(leftKey);
-            if (!leftSeries) {
-              leftSeries = chart.addSeries(LineSeries, {
-                color: boxColor,
-                lineWidth: 2,
-                lineStyle: 0,
-                crosshairMarkerVisible: false,
-                priceLineVisible: false,
-              });
-              nrbRangeSeriesRefs.current.set(leftKey, leftSeries);
-            }
-            leftSeries.setData([
-              { time: leftTime1 as Time, value: minLow },
-              { time: leftTime2 as Time, value: maxHigh },
-            ]);
-
-            // Right vertical line
-            const rightKey = "nrb-total-right";
-            let rightSeries = nrbRangeSeriesRefs.current.get(rightKey);
-            if (!rightSeries) {
-              rightSeries = chart.addSeries(LineSeries, {
-                color: boxColor,
-                lineWidth: 2,
-                lineStyle: 0,
-                crosshairMarkerVisible: false,
-                priceLineVisible: false,
-              });
-              nrbRangeSeriesRefs.current.set(rightKey, rightSeries);
-            }
-            rightSeries.setData([
-              { time: rightTime1 as Time, value: minLow },
-              { time: rightTime2 as Time, value: maxHigh },
-            ]);
+          if (!(earliestStart < latestEnd && minLow < maxHigh)) {
+            return;
           }
-        }
+
+          const groupKeyPrefix = `nrb-group-${groupId}`;
+
+          // Top horizontal line
+          const topKey = `${groupKeyPrefix}-top`;
+          let topSeries = nrbRangeSeriesRefs.current.get(topKey);
+          if (!topSeries) {
+            topSeries = chart.addSeries(LineSeries, {
+              color: boxColor,
+              lineWidth: 2,
+              lineStyle: 0,
+              crosshairMarkerVisible: false,
+              priceLineVisible: false,
+            });
+            nrbRangeSeriesRefs.current.set(topKey, topSeries);
+          }
+          topSeries.setData([
+            { time: earliestStart as Time, value: maxHigh },
+            { time: latestEnd as Time, value: maxHigh },
+          ]);
+
+          // Bottom horizontal line
+          const bottomKey = `${groupKeyPrefix}-bottom`;
+          let bottomSeries = nrbRangeSeriesRefs.current.get(bottomKey);
+          if (!bottomSeries) {
+            bottomSeries = chart.addSeries(LineSeries, {
+              color: boxColor,
+              lineWidth: 2,
+              lineStyle: 0,
+              crosshairMarkerVisible: false,
+              priceLineVisible: false,
+            });
+            nrbRangeSeriesRefs.current.set(bottomKey, bottomSeries);
+          }
+          bottomSeries.setData([
+            { time: earliestStart as Time, value: minLow },
+            { time: latestEnd as Time, value: minLow },
+          ]);
+
+          // For vertical lines we must keep time strictly increasing; use ±1s offsets
+          const leftTime1 = earliestStart - 1;
+          const leftTime2 = earliestStart;
+          const rightTime1 = latestEnd;
+          const rightTime2 = latestEnd + 1;
+
+          // Left vertical line
+          const leftKey = `${groupKeyPrefix}-left`;
+          let leftSeries = nrbRangeSeriesRefs.current.get(leftKey);
+          if (!leftSeries) {
+            leftSeries = chart.addSeries(LineSeries, {
+              color: boxColor,
+              lineWidth: 2,
+              lineStyle: 0,
+              crosshairMarkerVisible: false,
+              priceLineVisible: false,
+            });
+            nrbRangeSeriesRefs.current.set(leftKey, leftSeries);
+          }
+          leftSeries.setData([
+            { time: leftTime1 as Time, value: minLow },
+            { time: leftTime2 as Time, value: maxHigh },
+          ]);
+
+          // Right vertical line
+          const rightKey = `${groupKeyPrefix}-right`;
+          let rightSeries = nrbRangeSeriesRefs.current.get(rightKey);
+          if (!rightSeries) {
+            rightSeries = chart.addSeries(LineSeries, {
+              color: boxColor,
+              lineWidth: 2,
+              lineStyle: 0,
+              crosshairMarkerVisible: false,
+              priceLineVisible: false,
+            });
+            nrbRangeSeriesRefs.current.set(rightKey, rightSeries);
+          }
+          rightSeries.setData([
+            { time: rightTime1 as Time, value: minLow },
+            { time: rightTime2 as Time, value: maxHigh },
+          ]);
+        });
       }
 
       // === 6. Other markers ===
+      // Color-palette for NRB groups
+      const nrbGroupColors = [
+        "#22c55e",
+        "#3b82f6",
+        "#f97316",
+        "#a855f7",
+        "#eab308",
+        "#ef4444",
+        "#14b8a6",
+        "#6366f1",
+      ];
+
+      const nrbGroupColorMap = new Map<number, string>();
+      markers.forEach((m: any) => {
+        if (m.nrb_group_id != null && !nrbGroupColorMap.has(m.nrb_group_id)) {
+          const idx = Math.abs(Number(m.nrb_group_id)) % nrbGroupColors.length;
+          nrbGroupColorMap.set(m.nrb_group_id, nrbGroupColors[idx]);
+        }
+      });
+
       const otherMarkers: SeriesMarker<Time>[] = markers
         .filter((m: any) => {
           const isBowlMarker =
@@ -739,12 +770,40 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             marker.direction === "Bullish Break" ||
             marker.direction === "Bearish Break";
 
-          if (marker.direction === "Bullish Break") {
-            color = "#00E5FF";
-            shape = "arrowUp";
-          } else if (marker.direction === "Bearish Break") {
-            color = "#FFD600";
-            shape = "arrowDown";
+          if (isNRBMarker) {
+            const groupId = marker.nrb_group_id as number | null;
+            const baseColor =
+              (groupId != null
+                ? nrbGroupColorMap.get(groupId) || color
+                : color) || "#2196F3";
+
+            if (
+              selectedNrbGroupId != null &&
+              groupId != null &&
+              groupId === selectedNrbGroupId
+            ) {
+              // Highlight selected group
+              color = baseColor;
+            } else if (selectedNrbGroupId != null) {
+              // De-emphasize non-selected NRB groups
+              color = "rgba(148, 163, 184, 0.6)"; // slate-400
+            } else {
+              color = baseColor;
+            }
+
+            if (marker.direction === "Bullish Break") {
+              shape = "arrowUp";
+            } else if (marker.direction === "Bearish Break") {
+              shape = "arrowDown";
+            }
+          } else {
+            if (marker.direction === "Bullish Break") {
+              color = "#00E5FF";
+              shape = "arrowUp";
+            } else if (marker.direction === "Bearish Break") {
+              color = "#FFD600";
+              shape = "arrowDown";
+            }
           }
 
           return {
@@ -824,6 +883,34 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
+    // Focus chart on selected NRB group (if any)
+    if (selectedNrbGroupId != null) {
+      const groupMarkers = markers.filter(
+        (m: any) => m.nrb_group_id === selectedNrbGroupId
+      );
+
+      const times: number[] = [];
+      groupMarkers.forEach((m: any) => {
+        if (m.time != null) times.push(Number(m.time));
+        if (m.group_start_time != null) times.push(Number(m.group_start_time));
+        if (m.group_end_time != null) times.push(Number(m.group_end_time));
+        if (m.range_start_time != null) times.push(Number(m.range_start_time));
+        if (m.range_end_time != null) times.push(Number(m.range_end_time));
+      });
+
+      if (times.length >= 2) {
+        const minTime = Math.min(...times);
+        const maxTime = Math.max(...times);
+        chart.timeScale().setVisibleRange({
+          from: minTime as Time,
+          to: maxTime as Time,
+        });
+      } else {
+        chart.timeScale().fitContent();
+      }
+    } else {
+      chart.timeScale().fitContent();
+    }
   }, [
     priceData,
     markers,
@@ -833,6 +920,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     parameterSeriesDataEma5, // 🆕
     parameterSeriesDataEma10, // 🆕
     week52High,
+    selectedNrbGroupId,
   ]);
 
   return <div ref={chartContainerRef} className="w-full h-full" />;

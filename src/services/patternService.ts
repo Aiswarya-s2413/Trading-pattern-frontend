@@ -32,8 +32,23 @@ export interface Marker {
   range_end_time?: number | null;
   nrb_id?: number | null;
 
+  // 🆕 NRB GROUP FIELDS (OPTIONAL)
+  nrb_group_id?: number | null;
+  group_duration_weeks?: number | null;
+  group_start_time?: number | null;
+  group_end_time?: number | null;
+
   // Direction info for arrows
   direction?: "Bullish Break" | "Bearish Break" | string;
+}
+
+export interface NrbGroup {
+  group_id: number;
+  duration_weeks: number | null;
+  start_time: number | null;
+  end_time: number | null;
+  num_nrbs: number;
+  avg_range_high?: number | null;
 }
 
 export interface PatternScanResponse {
@@ -49,6 +64,9 @@ export interface PatternScanResponse {
   series_data?: SeriesPoint[];
   series_data_ema5?: SeriesPoint[]; // 🆕 RED LINE
   series_data_ema10?: SeriesPoint[]; // 🆕 BLUE LINE
+
+  // 🆕 NRB groups array from backend
+  nrb_groups?: NrbGroup[];
 }
 
 // Function to fetch pattern scan data from your backend
@@ -96,8 +114,11 @@ export const fetchPatternScanData = async (
     );
 
     console.log("[API] Raw response data:", response.data);
-    console.log('[API] total_nrb_duration_weeks:', response.data.total_nrb_duration_weeks); // Add this
-    console.log('[API] Response keys:', Object.keys(response.data));
+    console.log(
+      "[API] total_nrb_duration_weeks:",
+      response.data.total_nrb_duration_weeks
+    ); // Add this
+    console.log("[API] Response keys:", Object.keys(response.data));
 
     // Backward-compatible markers extraction
     let rawMarkers = response.data.markers;
@@ -126,6 +147,20 @@ export const fetchPatternScanData = async (
       (response.data as any).debug?.total_nrb_duration_weeks ??
       null;
 
+    // Extract nrb_groups from backend response
+    const nrbGroups: NrbGroup[] = ((response.data as any).nrb_groups || []).map(
+      (g: any) => ({
+        group_id: g.group_id ?? g.groupId ?? null,
+        duration_weeks: g.duration_weeks ?? g.durationWeeks ?? null,
+        start_time: g.start_time ?? g.startTime ?? null,
+        end_time: g.end_time ?? g.endTime ?? null,
+        num_nrbs: g.num_nrbs ?? g.numNrbs ?? 0,
+        avg_range_high: g.avg_range_high ?? g.avgRangeHigh ?? null,
+      })
+    );
+
+    console.log("[API] NRB groups from backend:", nrbGroups);
+
     // Normalize markers
     const normalizedData: PatternScanResponse = {
       scrip: response.data.scrip || scrip,
@@ -146,6 +181,10 @@ export const fetchPatternScanData = async (
         range_start_time: marker.range_start_time ?? null,
         range_end_time: marker.range_end_time ?? null,
         nrb_id: marker.nrb_id ?? null,
+        nrb_group_id: marker.nrb_group_id ?? null,
+        group_duration_weeks: marker.group_duration_weeks ?? null,
+        group_start_time: marker.group_start_time ?? null,
+        group_end_time: marker.group_end_time ?? null,
         direction: marker.direction,
       })),
 
@@ -155,6 +194,7 @@ export const fetchPatternScanData = async (
       series_data: normalizedSeriesData,
       series_data_ema5: normalizedSeriesDataEma5, // 🆕
       series_data_ema10: normalizedSeriesDataEma10, // 🆕
+      nrb_groups: nrbGroups, // 🆕
     };
 
     console.log(
@@ -164,6 +204,25 @@ export const fetchPatternScanData = async (
     if (normalizedData.markers.length > 0) {
       console.log("[API] Sample normalized marker:", normalizedData.markers[0]);
     }
+
+    // Console log: Normalized NRB markers with group data
+    const normalizedNrbMarkers = normalizedData.markers.filter(
+      (m) =>
+        m.nrb_group_id != null ||
+        m.direction === "Bullish Break" ||
+        m.direction === "Bearish Break"
+    );
+    console.log(
+      "[API] Normalized NRB markers with group data:",
+      normalizedNrbMarkers.map((m) => ({
+        nrb_group_id: m.nrb_group_id,
+        group_duration_weeks: m.group_duration_weeks,
+        group_start_time: m.group_start_time,
+        group_end_time: m.group_end_time,
+        nrb_id: m.nrb_id,
+        direction: m.direction,
+      }))
+    );
     console.log(
       "[API] Series:",
       normalizedData.series,

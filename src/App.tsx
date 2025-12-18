@@ -14,12 +14,12 @@ function App() {
   const [week52High, setWeek52High] = useState<number | null | "unavailable">(
     null
   );
-  const [totalNrbDurationWeeks, setTotalNrbDurationWeeks] = useState<
-    number | null
-  >(null);
   const [lastPattern, setLastPattern] = useState<"bowl" | "nrb">("bowl");
+  const [selectedNrbGroupId, setSelectedNrbGroupId] = useState<number | null>(
+    null
+  );
 
-  const { currentSymbol, setPatternData } = useMarketStore();
+  const { currentSymbol, setPatternData, patternMarkers, nrbGroups } = useMarketStore();
 
   useEffect(() => {
     const load52WeekHigh = async () => {
@@ -42,9 +42,9 @@ function App() {
     setIsLoading(true);
     setLastPattern(data.pattern as "bowl" | "nrb");
 
-    // Reset NRB duration when switching away from NRB
+    // Reset NRB selection when switching away from NRB
     if (data.pattern !== "nrb") {
-      setTotalNrbDurationWeeks(null);
+      setSelectedNrbGroupId(null);
     }
 
     try {
@@ -61,11 +61,6 @@ function App() {
 
       console.log("Normalized Pattern Data:", response);
 
-      // Capture total NRB duration (if provided by backend)
-      if (data.pattern === "nrb") {
-        setTotalNrbDurationWeeks(response.total_nrb_duration_weeks ?? null);
-      }
-
       // Update the store with all series data (including RSC EMA5 and EMA10)
       setPatternData(
         response.markers,
@@ -75,7 +70,8 @@ function App() {
         "#2962FF", // Default overlay color
         response.series_data_ema5, // 🆕 RED LINE
         response.series_data_ema10, // 🆕 BLUE LINE
-        response.total_nrb_duration_weeks ?? null // 🆕 Total NRB duration for chart overlay
+        response.total_nrb_duration_weeks ?? null, // 🆕 Total NRB duration for chart overlay
+        response.nrb_groups ?? null // 🆕 NRB groups from backend
       );
     } catch (error) {
       console.error("Analysis failed", error);
@@ -94,7 +90,7 @@ function App() {
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 h-[85vh]">
-          <ChartContainer />
+          <ChartContainer selectedNrbGroupId={selectedNrbGroupId} />
         </div>
 
         <ScrollArea className="h-full lg:h-[85vh]">
@@ -118,16 +114,128 @@ function App() {
 
             {lastPattern === "nrb" && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
-                <div className="text-slate-400 text-sm mb-1">
-                  Total NRB Duration ({currentSymbol})
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {totalNrbDurationWeeks != null ? (
-                    `${totalNrbDurationWeeks} weeks`
-                  ) : (
-                    <span className="text-slate-500 text-lg">Unavailable</span>
-                  )}
-                </div>
+                {(() => {
+                  // ✅ NEW WAY - Use backend nrb_groups directly
+                  const backendGroups = nrbGroups || [];
+
+                  // Transform to GroupInfo format
+                  type GroupInfo = {
+                    id: number;
+                    durationWeeks: number | null;
+                    startTime: number | null;
+                    endTime: number | null;
+                    nrbCount: number;
+                    avgRangeHigh: number | null;
+                  };
+
+                  const groupInfoList = backendGroups
+                    .filter((g) => g.num_nrbs > 1) // Only groups with >1 NRB
+                    .map((g) => ({
+                      id: g.group_id,
+                      durationWeeks: g.duration_weeks, // Use backend value
+                      startTime: g.start_time,
+                      endTime: g.end_time,
+                      nrbCount: g.num_nrbs,
+                      avgRangeHigh: g.avg_range_high ?? null,
+                    }))
+                    .sort((a, b) => {
+                      const da = a.durationWeeks ?? 0;
+                      const db = b.durationWeeks ?? 0;
+                      return db - da;
+                    });
+
+                  console.log("[NRB Groups] Using backend groups:", groupInfoList);
+
+                  if (groupInfoList.length === 0) {
+                    return (
+                      <div className="text-slate-500 text-sm">
+                        No NRB groups available for {currentSymbol}.
+                      </div>
+                    );
+                  }
+
+                  const groups = groupInfoList;
+
+                  const formatDate = (timestamp: number | null) => {
+                    if (!timestamp) return "-";
+                    const d = new Date(timestamp * 1000);
+                    return d.toLocaleDateString("en-IN", {
+                      month: "short",
+                      year: "numeric",
+                    });
+                  };
+
+                  const formatWeeks = (weeks: number | null) => {
+                    if (weeks == null) return null;
+                    // If it's a whole number, show without decimals
+                    if (Number.isInteger(weeks)) {
+                      return weeks.toString();
+                    }
+                    // Otherwise, show up to 2 decimal places
+                    return weeks.toFixed(2);
+                  };
+
+                  const groupCount = groups.length;
+
+                  return (
+                    <>
+                      <div className="mb-3">
+                        <div className="text-slate-400 text-sm">
+                          Distinct NRB Groups ({currentSymbol})
+                        </div>
+                        <div className="text-lg font-semibold text-white">
+                          {groupCount} distinct NRB group
+                          {groupCount === 1 ? "" : "s"} found
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {groups.map((group, index) => {
+                          const isSelected =
+                            selectedNrbGroupId != null &&
+                            selectedNrbGroupId === group.id;
+
+                          return (
+                            <button
+                              key={group.id}
+                              type="button"
+                              onClick={() =>
+                                setSelectedNrbGroupId(
+                                  isSelected ? null : group.id
+                                )
+                              }
+                              className={`w-full text-left px-3 py-2 rounded border text-sm transition-colors ${
+                                isSelected
+                                  ? "border-brand-primary bg-slate-800 text-white"
+                                  : "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="font-medium">
+                                  Group {index + 1}
+                                </div>
+                                {group.durationWeeks != null && (
+                                  <div className="text-brand-accent font-semibold">
+                                    {formatWeeks(group.durationWeeks)} weeks
+                                  </div>
+                                )}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-400">
+                                {formatDate(group.startTime)} -{" "}
+                                {formatDate(group.endTime)}
+                              </div>
+                              {group.nrbCount > 0 && (
+                                <div className="mt-1 text-xs text-slate-500">
+                                  {group.nrbCount} NRB{group.nrbCount !== 1 ? "s" : ""}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>

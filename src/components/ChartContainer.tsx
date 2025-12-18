@@ -105,6 +105,7 @@ const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
                         parameterSeriesData={seriesData || []}
                         parameterSeriesDataEma5={seriesDataEma5 || []}    // 🆕
                         parameterSeriesDataEma10={seriesDataEma10 || []}  // 🆕
+                        selectedNrbGroupId={selectedNrbGroupId}
                     /> 
                 </div>
             )}

@@ -19,7 +19,7 @@ function App() {
     null
   );
 
-  const { currentSymbol, setPatternData, patternMarkers, nrbGroups } = useMarketStore();
+  const { currentSymbol, setPatternData, nrbGroups } = useMarketStore();
 
   useEffect(() => {
     const load52WeekHigh = async () => {
@@ -117,16 +117,6 @@ function App() {
                 {(() => {
                   // ✅ NEW WAY - Use backend nrb_groups directly
                   const backendGroups = nrbGroups || [];
-
-                  // Transform to GroupInfo format
-                  type GroupInfo = {
-                    id: number;
-                    durationWeeks: number | null;
-                    startTime: number | null;
-                    endTime: number | null;
-                    nrbCount: number;
-                    avgRangeHigh: number | null;
-                  };
 
                   const groupInfoList = backendGroups
                     .filter((g) => g.num_nrbs > 1) // Only groups with >1 NRB

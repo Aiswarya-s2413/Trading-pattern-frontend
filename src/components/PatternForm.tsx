@@ -148,7 +148,7 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
 
       <div className="mb-6">
         <label className="block text-sm font-medium mb-2 text-slate-300">
-          Parameter (Optional)
+          Parameter 
         </label>
         <select
           value={parameter}

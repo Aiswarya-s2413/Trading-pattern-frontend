@@ -831,42 +831,60 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       window.removeEventListener("resize", handleResize);
     };
     // Focus chart on selected consolidation zone (if any)
-    if (selectedNrbGroupId != null && consolidationZones != null && consolidationZones.length > 0) {
-      const selectedZone = consolidationZones.find(
+    if (selectedNrbGroupId == null) {
+      chart.timeScale().fitContent();
+      return;
+    }
+
+    // Try to find zone from consolidationZones first
+    // TypeScript doesn't narrow properly in useEffect callbacks
+    // Store length first to avoid accessing consolidationZones.length after check
+    const zonesLength = consolidationZones?.length ?? 0;
+    if (zonesLength > 0 && consolidationZones != null) {
+      // Safe non-null assertion: we've checked consolidationZones != null above
+      // TypeScript doesn't narrow properly, so we use non-null assertion
+      const zones = consolidationZones!;
+      const foundZone = zones.find(
         (z) => z.zone_id === selectedNrbGroupId
       );
 
-      if (selectedZone != null && selectedZone.start_time != null && selectedZone.end_time != null) {
-        chart.timeScale().setVisibleRange({
-          from: Number(selectedZone.start_time) as Time,
-          to: Number(selectedZone.end_time) as Time,
-        });
-      } else {
-        // Fallback: use markers in the selected zone
-        const zoneMarkers = markers.filter(
-          (m: any) => m.consolidation_zone_id === selectedNrbGroupId
-        );
-
-        const times: number[] = [];
-        zoneMarkers.forEach((m: any) => {
-          if (m.time != null) times.push(Number(m.time));
-          if (m.zone_start_time != null) times.push(Number(m.zone_start_time));
-          if (m.zone_end_time != null) times.push(Number(m.zone_end_time));
-          if (m.range_start_time != null) times.push(Number(m.range_start_time));
-          if (m.range_end_time != null) times.push(Number(m.range_end_time));
-        });
-
-        if (times.length >= 2) {
-          const minTime = Math.min(...times);
-          const maxTime = Math.max(...times);
+      // TypeScript narrowing: find() can return undefined, so we check
+      if (foundZone) {
+        // Safe non-null assertion: we've checked foundZone is truthy above
+        const startTime = foundZone!.start_time;
+        const endTime = foundZone!.end_time;
+        
+        if (startTime != null && endTime != null) {
           chart.timeScale().setVisibleRange({
-            from: minTime as Time,
-            to: maxTime as Time,
+            from: Number(startTime) as Time,
+            to: Number(endTime) as Time,
           });
-        } else {
-          chart.timeScale().fitContent();
+          return;
         }
       }
+    }
+    
+    // Fallback: use markers in the selected zone
+    const zoneMarkers = markers.filter(
+      (m: any) => m.consolidation_zone_id === selectedNrbGroupId
+    );
+
+    const times: number[] = [];
+    zoneMarkers.forEach((m: any) => {
+      if (m.time != null) times.push(Number(m.time));
+      if (m.zone_start_time != null) times.push(Number(m.zone_start_time));
+      if (m.zone_end_time != null) times.push(Number(m.zone_end_time));
+      if (m.range_start_time != null) times.push(Number(m.range_start_time));
+      if (m.range_end_time != null) times.push(Number(m.range_end_time));
+    });
+
+    if (times.length >= 2) {
+      const minTime = Math.min(...times);
+      const maxTime = Math.max(...times);
+      chart.timeScale().setVisibleRange({
+        from: minTime as Time,
+        to: maxTime as Time,
+      });
     } else {
       chart.timeScale().fitContent();
     }

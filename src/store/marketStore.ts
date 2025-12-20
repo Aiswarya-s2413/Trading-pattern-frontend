@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { fetchTrueDataHistory, type OHLCVData } from '../services/TrueDataService';
-import type { Marker, SeriesPoint, PriceData, NrbGroup } from '../services/patternService';
+import type { Marker, SeriesPoint, PriceData, ConsolidationZone } from '../services/patternService';
 
 interface MarketState {
     currentSymbol: string;
@@ -21,10 +21,10 @@ interface MarketState {
     overlaySeriesEma5: SeriesPoint[] | null;
     overlaySeriesEma10: SeriesPoint[] | null;
 
-    // 🆕 Total NRB duration (weeks) for current pattern scan (if any)
-    totalNrbDurationWeeks: number | null;
-    // 🆕 NRB groups from backend
-    nrbGroups: NrbGroup[] | null;
+    // 🆕 Total consolidation duration (weeks) for current pattern scan (if any)
+    totalConsolidationDurationWeeks: number | null;
+    // 🆕 Consolidation zones from backend
+    consolidationZones: ConsolidationZone[] | null;
 
     setSymbol: (symbol: string) => void;
     setInterval: (interval: "1D" | "1W" | "1m") => void;
@@ -40,8 +40,8 @@ interface MarketState {
         overlayColor?: string,
         series_data_ema5?: SeriesPoint[],  // 🆕
         series_data_ema10?: SeriesPoint[], // 🆕
-        totalNrbDurationWeeks?: number | null, // 🆕
-        nrbGroups?: NrbGroup[] | null // 🆕
+        totalConsolidationDurationWeeks?: number | null, // 🆕
+        consolidationZones?: ConsolidationZone[] | null // 🆕
     ) => void;
     resetPatternMode: () => void;
 }
@@ -61,8 +61,8 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     overlayColor: '#2962FF',
     overlaySeriesEma5: null,   // 🆕
     overlaySeriesEma10: null,  // 🆕
-    totalNrbDurationWeeks: null,
-    nrbGroups: null, // 🆕
+    totalConsolidationDurationWeeks: null,
+    consolidationZones: null, // 🆕
 
     setSymbol: (symbol) => {
         set({ currentSymbol: symbol });
@@ -137,8 +137,8 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         overlayColor = "#2962FF",
         series_data_ema5 = [],   // 🆕
         series_data_ema10 = [],  // 🆕
-        totalNrbDurationWeeks = null, // 🆕
-        nrbGroups = null // 🆕
+        totalConsolidationDurationWeeks = null, // 🆕
+        consolidationZones = null // 🆕
     ) => {
         set({
             patternMode: true,
@@ -149,8 +149,8 @@ export const useMarketStore = create<MarketState>((set, get) => ({
             overlayColor,
             overlaySeriesEma5: series_data_ema5.length > 0 ? series_data_ema5 : null,   // 🆕
             overlaySeriesEma10: series_data_ema10.length > 0 ? series_data_ema10 : null, // 🆕
-            totalNrbDurationWeeks,
-            nrbGroups, // 🆕
+            totalConsolidationDurationWeeks,
+            consolidationZones, // 🆕
         });
     },
 
@@ -163,7 +163,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
             overlaySeries: null,
             overlaySeriesEma5: null,   // 🆕
             overlaySeriesEma10: null,  // 🆕
-            nrbGroups: null, // 🆕
+            consolidationZones: null, // 🆕
         });
     }
 }));

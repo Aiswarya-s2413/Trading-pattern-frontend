@@ -32,23 +32,30 @@ export interface Marker {
   range_end_time?: number | null;
   nrb_id?: number | null;
 
-  // 🆕 NRB GROUP FIELDS (OPTIONAL)
-  nrb_group_id?: number | null;
-  group_duration_weeks?: number | null;
-  group_start_time?: number | null;
-  group_end_time?: number | null;
+  // 🆕 CONSOLIDATION ZONE FIELDS (OPTIONAL)
+  consolidation_zone_id?: number | null;
+  zone_duration_weeks?: number | null;
+  zone_start_time?: number | null;
+  zone_end_time?: number | null;
+  zone_min_value?: number | null;
+  zone_max_value?: number | null;
+  zone_avg_value?: number | null;
+  zone_range_pct?: number | null;
 
   // Direction info for arrows
   direction?: "Bullish Break" | "Bearish Break" | string;
 }
 
-export interface NrbGroup {
-  group_id: number;
-  duration_weeks: number | null;
+export interface ConsolidationZone {
+  zone_id: number;
   start_time: number | null;
   end_time: number | null;
+  duration_weeks: number | null;
+  min_value: number | null;
+  max_value: number | null;
+  avg_value: number | null;
+  range_pct: number | null;
   num_nrbs: number;
-  avg_range_high?: number | null;
 }
 
 export interface PatternScanResponse {
@@ -56,8 +63,8 @@ export interface PatternScanResponse {
   pattern: string;
   price_data: PriceData[];
   markers: Marker[];
-  // 🆕 Total NRB regime duration (in weeks) when pattern is Narrow Range Break
-  total_nrb_duration_weeks?: number | null;
+  // 🆕 Total consolidation duration (in weeks) when pattern is Narrow Range Break
+  total_consolidation_duration_weeks?: number | null;
 
   // Series info (for EMA/RSC)
   series?: string | null;
@@ -65,8 +72,8 @@ export interface PatternScanResponse {
   series_data_ema5?: SeriesPoint[]; // 🆕 RED LINE
   series_data_ema10?: SeriesPoint[]; // 🆕 BLUE LINE
 
-  // 🆕 NRB groups array from backend
-  nrb_groups?: NrbGroup[];
+  // 🆕 Consolidation zones array from backend
+  consolidation_zones?: ConsolidationZone[];
 }
 
 // Function to fetch pattern scan data from your backend
@@ -115,9 +122,9 @@ export const fetchPatternScanData = async (
 
     console.log("[API] Raw response data:", response.data);
     console.log(
-      "[API] total_nrb_duration_weeks:",
-      response.data.total_nrb_duration_weeks
-    ); // Add this
+      "[API] total_consolidation_duration_weeks:",
+      (response.data as any).total_consolidation_duration_weeks
+    );
     console.log("[API] Response keys:", Object.keys(response.data));
 
     // Backward-compatible markers extraction
@@ -142,24 +149,27 @@ export const fetchPatternScanData = async (
     const normalizedSeriesDataEma10: SeriesPoint[] = // 🆕
       ((response.data as any).series_data_ema10 as SeriesPoint[]) ?? [];
 
-    const totalNrbDurationWeeks =
-      (response.data as any).total_nrb_duration_weeks ??
-      (response.data as any).debug?.total_nrb_duration_weeks ??
+    const totalConsolidationDurationWeeks =
+      (response.data as any).total_consolidation_duration_weeks ??
+      (response.data as any).debug?.total_consolidation_duration_weeks ??
       null;
 
-    // Extract nrb_groups from backend response
-    const nrbGroups: NrbGroup[] = ((response.data as any).nrb_groups || []).map(
+    // Extract consolidation_zones from backend response
+    const consolidationZones: ConsolidationZone[] = ((response.data as any).consolidation_zones || []).map(
       (g: any) => ({
-        group_id: g.group_id ?? g.groupId ?? null,
-        duration_weeks: g.duration_weeks ?? g.durationWeeks ?? null,
+        zone_id: g.zone_id ?? g.zoneId ?? null,
         start_time: g.start_time ?? g.startTime ?? null,
         end_time: g.end_time ?? g.endTime ?? null,
+        duration_weeks: g.duration_weeks ?? g.durationWeeks ?? null,
+        min_value: g.min_value ?? g.minValue ?? null,
+        max_value: g.max_value ?? g.maxValue ?? null,
+        avg_value: g.avg_value ?? g.avgValue ?? null,
+        range_pct: g.range_pct ?? g.rangePct ?? null,
         num_nrbs: g.num_nrbs ?? g.numNrbs ?? 0,
-        avg_range_high: g.avg_range_high ?? g.avgRangeHigh ?? null,
       })
     );
 
-    console.log("[API] NRB groups from backend:", nrbGroups);
+    console.log("[API] Consolidation zones from backend:", consolidationZones);
 
     // Normalize markers
     const normalizedData: PatternScanResponse = {
@@ -181,20 +191,24 @@ export const fetchPatternScanData = async (
         range_start_time: marker.range_start_time ?? null,
         range_end_time: marker.range_end_time ?? null,
         nrb_id: marker.nrb_id ?? null,
-        nrb_group_id: marker.nrb_group_id ?? null,
-        group_duration_weeks: marker.group_duration_weeks ?? null,
-        group_start_time: marker.group_start_time ?? null,
-        group_end_time: marker.group_end_time ?? null,
+        consolidation_zone_id: marker.consolidation_zone_id ?? null,
+        zone_duration_weeks: marker.zone_duration_weeks ?? null,
+        zone_start_time: marker.zone_start_time ?? null,
+        zone_end_time: marker.zone_end_time ?? null,
+        zone_min_value: marker.zone_min_value ?? null,
+        zone_max_value: marker.zone_max_value ?? null,
+        zone_avg_value: marker.zone_avg_value ?? null,
+        zone_range_pct: marker.zone_range_pct ?? null,
         direction: marker.direction,
       })),
 
-      total_nrb_duration_weeks: totalNrbDurationWeeks,
+      total_consolidation_duration_weeks: totalConsolidationDurationWeeks,
 
       series: normalizedSeries,
       series_data: normalizedSeriesData,
       series_data_ema5: normalizedSeriesDataEma5, // 🆕
       series_data_ema10: normalizedSeriesDataEma10, // 🆕
-      nrb_groups: nrbGroups, // 🆕
+      consolidation_zones: consolidationZones, // 🆕
     };
 
     console.log(
@@ -205,20 +219,23 @@ export const fetchPatternScanData = async (
       console.log("[API] Sample normalized marker:", normalizedData.markers[0]);
     }
 
-    // Console log: Normalized NRB markers with group data
+    // Console log: Normalized NRB markers with zone data
     const normalizedNrbMarkers = normalizedData.markers.filter(
       (m) =>
-        m.nrb_group_id != null ||
+        m.consolidation_zone_id != null ||
         m.direction === "Bullish Break" ||
         m.direction === "Bearish Break"
     );
     console.log(
-      "[API] Normalized NRB markers with group data:",
+      "[API] Normalized NRB markers with zone data:",
       normalizedNrbMarkers.map((m) => ({
-        nrb_group_id: m.nrb_group_id,
-        group_duration_weeks: m.group_duration_weeks,
-        group_start_time: m.group_start_time,
-        group_end_time: m.group_end_time,
+        consolidation_zone_id: m.consolidation_zone_id,
+        zone_duration_weeks: m.zone_duration_weeks,
+        zone_start_time: m.zone_start_time,
+        zone_end_time: m.zone_end_time,
+        zone_min_value: m.zone_min_value,
+        zone_max_value: m.zone_max_value,
+        zone_range_pct: m.zone_range_pct,
         nrb_id: m.nrb_id,
         direction: m.direction,
       }))

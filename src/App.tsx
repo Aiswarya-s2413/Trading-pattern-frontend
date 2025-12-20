@@ -19,7 +19,7 @@ function App() {
     null
   );
 
-  const { currentSymbol, setPatternData, nrbGroups } = useMarketStore();
+  const { currentSymbol, setPatternData, consolidationZones } = useMarketStore();
 
   useEffect(() => {
     const load52WeekHigh = async () => {
@@ -70,8 +70,8 @@ function App() {
         "#2962FF", // Default overlay color
         response.series_data_ema5, // 🆕 RED LINE
         response.series_data_ema10, // 🆕 BLUE LINE
-        response.total_nrb_duration_weeks ?? null, // 🆕 Total NRB duration for chart overlay
-        response.nrb_groups ?? null // 🆕 NRB groups from backend
+        response.total_consolidation_duration_weeks ?? null, // 🆕 Total consolidation duration for chart overlay
+        response.consolidation_zones ?? null // 🆕 Consolidation zones from backend
       );
     } catch (error) {
       console.error("Analysis failed", error);
@@ -115,18 +115,21 @@ function App() {
             {lastPattern === "nrb" && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 {(() => {
-                  // ✅ NEW WAY - Use backend nrb_groups directly
-                  const backendGroups = nrbGroups || [];
+                  // ✅ NEW WAY - Use backend consolidation_zones directly
+                  const backendZones = consolidationZones || [];
 
-                  const groupInfoList = backendGroups
-                    .filter((g) => g.num_nrbs > 1) // Only groups with >1 NRB
-                    .map((g) => ({
-                      id: g.group_id,
-                      durationWeeks: g.duration_weeks, // Use backend value
-                      startTime: g.start_time,
-                      endTime: g.end_time,
-                      nrbCount: g.num_nrbs,
-                      avgRangeHigh: g.avg_range_high ?? null,
+                  const zoneInfoList = backendZones
+                    .filter((z) => z.num_nrbs > 0) // Only zones with NRBs
+                    .map((z) => ({
+                      id: z.zone_id,
+                      durationWeeks: z.duration_weeks,
+                      startTime: z.start_time,
+                      endTime: z.end_time,
+                      minValue: z.min_value,
+                      maxValue: z.max_value,
+                      avgValue: z.avg_value,
+                      rangePct: z.range_pct,
+                      nrbCount: z.num_nrbs,
                     }))
                     .sort((a, b) => {
                       const da = a.durationWeeks ?? 0;
@@ -134,17 +137,17 @@ function App() {
                       return db - da;
                     });
 
-                  console.log("[NRB Groups] Using backend groups:", groupInfoList);
+                  console.log("[Consolidation Zones] Using backend zones:", zoneInfoList);
 
-                  if (groupInfoList.length === 0) {
+                  if (zoneInfoList.length === 0) {
                     return (
                       <div className="text-slate-500 text-sm">
-                        No NRB groups available for {currentSymbol}.
+                        No consolidation zones available for {currentSymbol}.
                       </div>
                     );
                   }
 
-                  const groups = groupInfoList;
+                  const zones = zoneInfoList;
 
                   const formatDate = (timestamp: number | null) => {
                     if (!timestamp) return "-";
@@ -165,33 +168,33 @@ function App() {
                     return weeks.toFixed(2);
                   };
 
-                  const groupCount = groups.length;
+                  const zoneCount = zones.length;
 
                   return (
                     <>
                       <div className="mb-3">
                         <div className="text-slate-400 text-sm">
-                          Distinct NRB Groups ({currentSymbol})
+                          Consolidation Zones ({currentSymbol})
                         </div>
                         <div className="text-lg font-semibold text-white">
-                          {groupCount} distinct NRB group
-                          {groupCount === 1 ? "" : "s"} found
+                          {zoneCount} consolidation zone
+                          {zoneCount === 1 ? "" : "s"} found
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        {groups.map((group, index) => {
+                        {zones.map((zone, index) => {
                           const isSelected =
                             selectedNrbGroupId != null &&
-                            selectedNrbGroupId === group.id;
+                            selectedNrbGroupId === zone.id;
 
                           return (
                             <button
-                              key={group.id}
+                              key={zone.id}
                               type="button"
                               onClick={() =>
                                 setSelectedNrbGroupId(
-                                  isSelected ? null : group.id
+                                  isSelected ? null : zone.id
                                 )
                               }
                               className={`w-full text-left px-3 py-2 rounded border text-sm transition-colors ${
@@ -202,21 +205,26 @@ function App() {
                             >
                               <div className="flex items-center justify-between">
                                 <div className="font-medium">
-                                  Group {index + 1}
+                                  Zone {index + 1}
                                 </div>
-                                {group.durationWeeks != null && (
+                                {zone.durationWeeks != null && (
                                   <div className="text-brand-accent font-semibold">
-                                    {formatWeeks(group.durationWeeks)} weeks
+                                    {formatWeeks(zone.durationWeeks)} weeks
                                   </div>
                                 )}
                               </div>
                               <div className="mt-1 text-xs text-slate-400">
-                                {formatDate(group.startTime)} -{" "}
-                                {formatDate(group.endTime)}
+                                {formatDate(zone.startTime)} -{" "}
+                                {formatDate(zone.endTime)}
                               </div>
-                              {group.nrbCount > 0 && (
+                              {zone.rangePct != null && (
+                                <div className="mt-1 text-xs text-slate-400">
+                                  Range: {zone.rangePct.toFixed(1)}%
+                                </div>
+                              )}
+                              {zone.nrbCount > 0 && (
                                 <div className="mt-1 text-xs text-slate-500">
-                                  {group.nrbCount} NRB{group.nrbCount !== 1 ? "s" : ""}
+                                  {zone.nrbCount} NRB{zone.nrbCount !== 1 ? "s" : ""}
                                 </div>
                               )}
                             </button>

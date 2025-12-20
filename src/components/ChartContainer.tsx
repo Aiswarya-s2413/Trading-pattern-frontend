@@ -26,6 +26,7 @@ const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
         overlaySeriesEma10: seriesDataEma10,    // 🆕
         patternMode,
         resetPatternMode,
+        consolidationZones,                     // 🆕
     } = useMarketStore();
 
     const data = dataCache[`${currentSymbol}-${currentInterval}`] || [];
@@ -106,6 +107,7 @@ const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
                         parameterSeriesDataEma5={seriesDataEma5 || []}    // 🆕
                         parameterSeriesDataEma10={seriesDataEma10 || []}  // 🆕
                         selectedNrbGroupId={selectedNrbGroupId}
+                        consolidationZones={consolidationZones}           // 🆕
                     /> 
                 </div>
             )}

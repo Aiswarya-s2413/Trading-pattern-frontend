@@ -17,6 +17,7 @@ import type {
   PriceData,
   Marker,
   SeriesPoint,
+  ConsolidationZone,
 } from "../../services/patternService";
 
 interface TradingViewChartProps {
@@ -28,7 +29,8 @@ interface TradingViewChartProps {
   parameterSeriesDataEma5?: SeriesPoint[]; // 🆕 RED LINE
   parameterSeriesDataEma10?: SeriesPoint[]; // 🆕 BLUE LINE
   week52High?: number | null;
-  selectedNrbGroupId?: number | null;
+  selectedNrbGroupId?: number | null; // Still using this name for compatibility, but it's actually zone_id now
+  consolidationZones?: ConsolidationZone[] | null; // 🆕 Consolidation zones from backend
 }
 
 const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -41,6 +43,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   parameterSeriesDataEma10, // 🆕
   week52High,
   selectedNrbGroupId,
+  consolidationZones, // 🆕
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -562,99 +565,43 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         ]);
       });
 
-      // Draw NRB regime "boxes" for each contiguous NRB group (backend-provided)
-      if (nrbMarkersWithRange.length > 0) {
-        type NrbMarker = {
-          range_start_time: number;
-          range_end_time: number;
-          range_low: number;
-          range_high: number;
-          nrb_group_id?: number | null;
-          nrb_id?: number | null;
-          [key: string]: any;
-        };
+      // Draw consolidation zone boxes using backend-provided zone data
+      // Clear any existing zone box series from previous renders
+      nrbRangeSeriesRefs.current.forEach((series, key) => {
+        if (key.startsWith("zone-")) {
+          series.setData([]);
+        }
+      });
 
-        // Clear any existing total/group box series from previous renders
-        nrbRangeSeriesRefs.current.forEach((series, key) => {
-          if (key.startsWith("nrb-total-") || key.startsWith("nrb-group-")) {
-            series.setData([]);
-          }
-        });
-
-        // Group NRBs by backend-provided nrb_group_id
-        const groupsById = new Map<number, NrbMarker[]>();
-        (nrbMarkersWithRange as unknown as NrbMarker[]).forEach((m) => {
-          const groupIdRaw = m.nrb_group_id;
-          if (groupIdRaw == null) return;
-          const groupId = Number(groupIdRaw);
-          if (!groupsById.has(groupId)) {
-            groupsById.set(groupId, []);
-          }
-          groupsById.get(groupId)!.push(m);
-        });
-
-        // Only keep groups that have more than one distinct NRB (by nrb_id/time)
-        const validGroups: { groupId: number; markers: NrbMarker[] }[] = [];
-        groupsById.forEach((groupMarkers, groupId) => {
-          const uniqueNrbIds = new Set<number | string>(
-            groupMarkers.map((gm) =>
-              gm.nrb_id != null
-                ? String(gm.nrb_id)
-                : String(gm.range_start_time)
-            )
-          );
-          if (uniqueNrbIds.size > 1) {
-            validGroups.push({ groupId, markers: groupMarkers });
-          }
-        });
-
+      // Draw consolidation zone boxes from backend data
+      if (consolidationZones && consolidationZones.length > 0) {
         const boxColor = "#22c55e"; // Tailwind green-500
 
-        validGroups.forEach(({ groupId, markers: groupArr }) => {
-          const startTimes = groupArr
-            .map((m: any) =>
-              m.group_start_time != null
-                ? Number(m.group_start_time)
-                : Number(m.range_start_time)
-            )
-            .filter((v) => !Number.isNaN(v));
-          const endTimes = groupArr
-            .map((m: any) =>
-              m.group_end_time != null
-                ? Number(m.group_end_time)
-                : Number(m.range_end_time)
-            )
-            .filter((v) => !Number.isNaN(v));
-          const lows = groupArr
-            .map((m: any) => Number(m.range_low))
-            .filter((v) => !Number.isNaN(v));
-          const highs = groupArr
-            .map((m: any) => Number(m.range_high))
-            .filter((v) => !Number.isNaN(v));
-
+        consolidationZones.forEach((zone) => {
+          // Only draw zones that have valid time and price data
           if (
-            startTimes.length === 0 ||
-            endTimes.length === 0 ||
-            lows.length === 0 ||
-            highs.length === 0
+            !zone.start_time ||
+            !zone.end_time ||
+            zone.min_value == null ||
+            zone.max_value == null
           ) {
             return;
           }
 
-          const earliestStart = Math.min(...startTimes);
-          const latestEnd = Math.max(...endTimes);
-          const minLow = Math.min(...lows);
-          const maxHigh = Math.max(...highs);
+          const startTime = Number(zone.start_time);
+          const endTime = Number(zone.end_time);
+          const minValue = Number(zone.min_value);
+          const maxValue = Number(zone.max_value);
 
           // Guard: need a real time & price span; and time must be strictly increasing
-          if (!(earliestStart < latestEnd && minLow < maxHigh)) {
+          if (!(startTime < endTime && minValue < maxValue)) {
             return;
           }
 
-          const groupKeyPrefix = `nrb-group-${groupId}`;
+          const zoneKeyPrefix = `zone-${zone.zone_id}`;
 
           // Top horizontal line
-          const topKey = `${groupKeyPrefix}-top`;
+          const topKey = `${zoneKeyPrefix}-top`;
           let topSeries = nrbRangeSeriesRefs.current.get(topKey);
           if (!topSeries) {
             topSeries = chart.addSeries(LineSeries, {
@@ -667,12 +614,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             nrbRangeSeriesRefs.current.set(topKey, topSeries);
           }
           topSeries.setData([
-            { time: earliestStart as Time, value: maxHigh },
-            { time: latestEnd as Time, value: maxHigh },
+            { time: startTime as Time, value: maxValue },
+            { time: endTime as Time, value: maxValue },
           ]);
 
           // Bottom horizontal line
-          const bottomKey = `${groupKeyPrefix}-bottom`;
+          const bottomKey = `${zoneKeyPrefix}-bottom`;
           let bottomSeries = nrbRangeSeriesRefs.current.get(bottomKey);
           if (!bottomSeries) {
             bottomSeries = chart.addSeries(LineSeries, {
@@ -685,18 +632,18 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             nrbRangeSeriesRefs.current.set(bottomKey, bottomSeries);
           }
           bottomSeries.setData([
-            { time: earliestStart as Time, value: minLow },
-            { time: latestEnd as Time, value: minLow },
+            { time: startTime as Time, value: minValue },
+            { time: endTime as Time, value: minValue },
           ]);
 
           // For vertical lines we must keep time strictly increasing; use ±1s offsets
-          const leftTime1 = earliestStart - 1;
-          const leftTime2 = earliestStart;
-          const rightTime1 = latestEnd;
-          const rightTime2 = latestEnd + 1;
+          const leftTime1 = startTime - 1;
+          const leftTime2 = startTime;
+          const rightTime1 = endTime;
+          const rightTime2 = endTime + 1;
 
           // Left vertical line
-          const leftKey = `${groupKeyPrefix}-left`;
+          const leftKey = `${zoneKeyPrefix}-left`;
           let leftSeries = nrbRangeSeriesRefs.current.get(leftKey);
           if (!leftSeries) {
             leftSeries = chart.addSeries(LineSeries, {
@@ -709,12 +656,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             nrbRangeSeriesRefs.current.set(leftKey, leftSeries);
           }
           leftSeries.setData([
-            { time: leftTime1 as Time, value: minLow },
-            { time: leftTime2 as Time, value: maxHigh },
+            { time: leftTime1 as Time, value: minValue },
+            { time: leftTime2 as Time, value: maxValue },
           ]);
 
           // Right vertical line
-          const rightKey = `${groupKeyPrefix}-right`;
+          const rightKey = `${zoneKeyPrefix}-right`;
           let rightSeries = nrbRangeSeriesRefs.current.get(rightKey);
           if (!rightSeries) {
             rightSeries = chart.addSeries(LineSeries, {
@@ -727,15 +674,15 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             nrbRangeSeriesRefs.current.set(rightKey, rightSeries);
           }
           rightSeries.setData([
-            { time: rightTime1 as Time, value: minLow },
-            { time: rightTime2 as Time, value: maxHigh },
+            { time: rightTime1 as Time, value: minValue },
+            { time: rightTime2 as Time, value: maxValue },
           ]);
         });
       }
 
       // === 6. Other markers ===
-      // Color-palette for NRB groups
-      const nrbGroupColors = [
+      // Color-palette for consolidation zones
+      const zoneColors = [
         "#22c55e",
         "#3b82f6",
         "#f97316",
@@ -746,11 +693,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         "#6366f1",
       ];
 
-      const nrbGroupColorMap = new Map<number, string>();
+      const zoneColorMap = new Map<number, string>();
       markers.forEach((m: any) => {
-        if (m.nrb_group_id != null && !nrbGroupColorMap.has(m.nrb_group_id)) {
-          const idx = Math.abs(Number(m.nrb_group_id)) % nrbGroupColors.length;
-          nrbGroupColorMap.set(m.nrb_group_id, nrbGroupColors[idx]);
+        if (m.consolidation_zone_id != null && !zoneColorMap.has(m.consolidation_zone_id)) {
+          const idx = Math.abs(Number(m.consolidation_zone_id)) % zoneColors.length;
+          zoneColorMap.set(m.consolidation_zone_id, zoneColors[idx]);
         }
       });
 
@@ -771,21 +718,21 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             marker.direction === "Bearish Break";
 
           if (isNRBMarker) {
-            const groupId = marker.nrb_group_id as number | null;
+            const zoneId = marker.consolidation_zone_id as number | null;
             const baseColor =
-              (groupId != null
-                ? nrbGroupColorMap.get(groupId) || color
+              (zoneId != null
+                ? zoneColorMap.get(zoneId) || color
                 : color) || "#2196F3";
 
             if (
               selectedNrbGroupId != null &&
-              groupId != null &&
-              groupId === selectedNrbGroupId
+              zoneId != null &&
+              zoneId === selectedNrbGroupId
             ) {
-              // Highlight selected group
+              // Highlight selected zone
               color = baseColor;
             } else if (selectedNrbGroupId != null) {
-              // De-emphasize non-selected NRB groups
+              // De-emphasize non-selected consolidation zones
               color = "rgba(148, 163, 184, 0.6)"; // slate-400
             } else {
               color = baseColor;
@@ -883,30 +830,42 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-    // Focus chart on selected NRB group (if any)
-    if (selectedNrbGroupId != null) {
-      const groupMarkers = markers.filter(
-        (m: any) => m.nrb_group_id === selectedNrbGroupId
+    // Focus chart on selected consolidation zone (if any)
+    if (selectedNrbGroupId != null && consolidationZones) {
+      const selectedZone = consolidationZones.find(
+        (z) => z.zone_id === selectedNrbGroupId
       );
 
-      const times: number[] = [];
-      groupMarkers.forEach((m: any) => {
-        if (m.time != null) times.push(Number(m.time));
-        if (m.group_start_time != null) times.push(Number(m.group_start_time));
-        if (m.group_end_time != null) times.push(Number(m.group_end_time));
-        if (m.range_start_time != null) times.push(Number(m.range_start_time));
-        if (m.range_end_time != null) times.push(Number(m.range_end_time));
-      });
-
-      if (times.length >= 2) {
-        const minTime = Math.min(...times);
-        const maxTime = Math.max(...times);
+      if (selectedZone && selectedZone.start_time && selectedZone.end_time) {
         chart.timeScale().setVisibleRange({
-          from: minTime as Time,
-          to: maxTime as Time,
+          from: Number(selectedZone.start_time) as Time,
+          to: Number(selectedZone.end_time) as Time,
         });
       } else {
-        chart.timeScale().fitContent();
+        // Fallback: use markers in the selected zone
+        const zoneMarkers = markers.filter(
+          (m: any) => m.consolidation_zone_id === selectedNrbGroupId
+        );
+
+        const times: number[] = [];
+        zoneMarkers.forEach((m: any) => {
+          if (m.time != null) times.push(Number(m.time));
+          if (m.zone_start_time != null) times.push(Number(m.zone_start_time));
+          if (m.zone_end_time != null) times.push(Number(m.zone_end_time));
+          if (m.range_start_time != null) times.push(Number(m.range_start_time));
+          if (m.range_end_time != null) times.push(Number(m.range_end_time));
+        });
+
+        if (times.length >= 2) {
+          const minTime = Math.min(...times);
+          const maxTime = Math.max(...times);
+          chart.timeScale().setVisibleRange({
+            from: minTime as Time,
+            to: maxTime as Time,
+          });
+        } else {
+          chart.timeScale().fitContent();
+        }
       }
     } else {
       chart.timeScale().fitContent();
@@ -921,6 +880,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     parameterSeriesDataEma10, // 🆕
     week52High,
     selectedNrbGroupId,
+    consolidationZones, // 🆕
   ]);
 
   return <div ref={chartContainerRef} className="w-full h-full" />;

@@ -831,12 +831,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       window.removeEventListener("resize", handleResize);
     };
     // Focus chart on selected consolidation zone (if any)
-    if (selectedNrbGroupId != null && consolidationZones) {
+    if (selectedNrbGroupId != null && consolidationZones != null && consolidationZones.length > 0) {
       const selectedZone = consolidationZones.find(
         (z) => z.zone_id === selectedNrbGroupId
       );
 
-      if (selectedZone && selectedZone.start_time && selectedZone.end_time) {
+      if (selectedZone != null && selectedZone.start_time != null && selectedZone.end_time != null) {
         chart.timeScale().setVisibleRange({
           from: Number(selectedZone.start_time) as Time,
           to: Number(selectedZone.end_time) as Time,

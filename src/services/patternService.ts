@@ -46,18 +46,6 @@ export interface Marker {
   direction?: "Bullish Break" | "Bearish Break" | string;
 }
 
-export interface ConsolidationZone {
-  zone_id: number;
-  start_time: number | null;
-  end_time: number | null;
-  duration_weeks: number | null;
-  min_value: number | null;
-  max_value: number | null;
-  avg_value: number | null;
-  range_pct: number | null;
-  num_nrbs: number;
-}
-
 export interface PatternScanResponse {
   scrip: string;
   pattern: string;
@@ -161,11 +149,15 @@ export const fetchPatternScanData = async (
         start_time: g.start_time ?? g.startTime ?? null,
         end_time: g.end_time ?? g.endTime ?? null,
         duration_weeks: g.duration_weeks ?? g.durationWeeks ?? null,
+        first_value: g.first_value ?? g.firstValue ?? null,
         min_value: g.min_value ?? g.minValue ?? null,
         max_value: g.max_value ?? g.maxValue ?? null,
         avg_value: g.avg_value ?? g.avgValue ?? null,
         range_pct: g.range_pct ?? g.rangePct ?? null,
         num_nrbs: g.num_nrbs ?? g.numNrbs ?? 0,
+        success_rate_3m: g.success_rate_3m ?? g.successRate3m ?? null,
+        success_rate_6m: g.success_rate_6m ?? g.successRate6m ?? null,
+        success_rate_12m: g.success_rate_12m ?? g.successRate12m ?? null,
       })
     );
 
@@ -284,3 +276,19 @@ export const fetch52WeekHigh = async (
     throw error;
   }
 };
+
+export interface ConsolidationZone {
+  zone_id: number;
+  start_time: number;
+  end_time: number;
+  duration_weeks: number;
+  first_value: number;
+  min_value: number;
+  max_value: number;
+  avg_value: number;
+  range_pct: number;
+  num_nrbs: number;
+  success_rate_3m: number | null;  // ✅ New field
+  success_rate_6m: number | null;  // ✅ New field
+  success_rate_12m: number | null; // ✅ New field
+}

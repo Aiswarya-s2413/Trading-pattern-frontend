@@ -130,6 +130,9 @@ function App() {
                       avgValue: z.avg_value,
                       rangePct: z.range_pct,
                       nrbCount: z.num_nrbs,
+                      successRate3m: z.success_rate_3m,
+                      successRate6m: z.success_rate_6m,
+                      successRate12m: z.success_rate_12m,
                     }))
                     .sort((a, b) => {
                       const da = a.durationWeeks ?? 0;
@@ -166,6 +169,17 @@ function App() {
                     }
                     // Otherwise, show up to 2 decimal places
                     return weeks.toFixed(2);
+                  };
+
+                  const formatSuccessRate = (rate: number | null | undefined) => {
+                    if (rate == null) return "N/A";
+                    const color = rate >= 0 ? "text-green-400" : "text-red-400";
+                    const sign = rate >= 0 ? "+" : "";
+                    return (
+                      <span className={color}>
+                        {sign}{rate.toFixed(1)}%
+                      </span>
+                    );
                   };
 
                   const zoneCount = zones.length;
@@ -223,6 +237,33 @@ function App() {
                                   {zone.nrbCount} NRB{zone.nrbCount !== 1 ? "s" : ""}
                                 </div>
                               )}
+
+                              {/* Success Rates Display */}
+                              <div className="mt-2 pt-2 border-t border-slate-700">
+                                <div className="text-xs text-slate-400 mb-1">
+                                  Success Rates:
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                  <div>
+                                    <div className="text-slate-500">3M</div>
+                                    <div className="font-semibold">
+                                      {formatSuccessRate(zone.successRate3m)}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-slate-500">6M</div>
+                                    <div className="font-semibold">
+                                      {formatSuccessRate(zone.successRate6m)}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-slate-500">12M</div>
+                                    <div className="font-semibold">
+                                      {formatSuccessRate(zone.successRate12m)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </button>
                           );
                         })}

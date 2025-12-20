@@ -217,11 +217,7 @@ function App() {
                                 {formatDate(zone.startTime)} -{" "}
                                 {formatDate(zone.endTime)}
                               </div>
-                              {zone.rangePct != null && (
-                                <div className="mt-1 text-xs text-slate-400">
-                                  Range: {zone.rangePct.toFixed(1)}%
-                                </div>
-                              )}
+                              
                               {zone.nrbCount > 0 && (
                                 <div className="mt-1 text-xs text-slate-500">
                                   {zone.nrbCount} NRB{zone.nrbCount !== 1 ? "s" : ""}

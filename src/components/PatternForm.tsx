@@ -7,11 +7,11 @@ interface PatternFormProps {
 }
 
 const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
-  const [pattern, setPattern] = useState("bowl");
+  const [pattern, setPattern] = useState("nrb");
   const [weeks, setWeeks] = useState(52);
-  const [parameter, setParameter] = useState("ema21");
-  const [cooldownWeeks, setCooldownWeeks] = useState(4);
-  const [cooldownWeeksInput, setCooldownWeeksInput] = useState("4");
+  const [parameter, setParameter] = useState("rsc30");
+  const [cooldownWeeks, setCooldownWeeks] = useState(20);
+  const [cooldownWeeksInput, setCooldownWeeksInput] = useState("20");
   const [cooldownError, setCooldownError] = useState<string | null>(null);
 
   const validateCooldown = (value: number): string | null => {

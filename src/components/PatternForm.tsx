@@ -4,9 +4,16 @@ import type { PatternData } from "../services/mockBackend";
 interface PatternFormProps {
   onAnalyze: (data: PatternData) => void;
   isLoading: boolean;
+  showConsolidationZones: boolean;
+  onToggleConsolidationZones: (show: boolean) => void;
 }
 
-const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
+const PatternForm: FC<PatternFormProps> = ({ 
+  onAnalyze, 
+  isLoading,
+  showConsolidationZones,
+  onToggleConsolidationZones
+}) => {
   const [pattern, setPattern] = useState("nrb");
   const [weeks, setWeeks] = useState(52);
   const [parameter, setParameter] = useState("rsc30");
@@ -160,9 +167,27 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
           <option value="ema50">EMA 50</option>
           <option value="ema200">EMA 200</option>
           <option value="rsc30">RSC SENSEX (Ratio + EMAs)</option>
-          {/* 🔄 Removed RSC500 */}
         </select>
       </div>
+
+      {pattern === "nrb" && (
+        <div className="mb-6">
+          <label className="flex items-center space-x-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showConsolidationZones}
+              onChange={(e) => onToggleConsolidationZones(e.target.checked)}
+              className="w-4 h-4 text-brand-primary bg-slate-800 border-slate-600 rounded focus:ring-2 focus:ring-brand-primary"
+            />
+            <span className="text-sm font-medium text-slate-300">
+              Display Consolidation Zones
+            </span>
+          </label>
+          <p className="mt-1 ml-7 text-xs text-slate-400">
+            Show detailed zone analysis with success rates
+          </p>
+        </div>
+      )}
 
       <button
         type="submit"

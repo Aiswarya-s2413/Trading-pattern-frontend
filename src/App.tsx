@@ -18,6 +18,8 @@ function App() {
   const [selectedNrbGroupId, setSelectedNrbGroupId] = useState<number | null>(
     null
   );
+  const [showConsolidationZones, setShowConsolidationZones] = useState(false);
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
   const { currentSymbol, setPatternData, consolidationZones } = useMarketStore();
 
@@ -41,6 +43,7 @@ function App() {
   const handleAnalyze = async (data: PatternData) => {
     setIsLoading(true);
     setLastPattern(data.pattern as "bowl" | "nrb");
+    setHasAnalyzed(false); // Reset on new analysis
 
     // Reset NRB selection when switching away from NRB
     if (data.pattern !== "nrb") {
@@ -73,6 +76,8 @@ function App() {
         response.total_consolidation_duration_weeks ?? null, // 🆕 Total consolidation duration for chart overlay
         response.consolidation_zones ?? null // 🆕 Consolidation zones from backend
       );
+      
+      setHasAnalyzed(true); // Mark as analyzed after successful response
     } catch (error) {
       console.error("Analysis failed", error);
     } finally {
@@ -95,7 +100,12 @@ function App() {
 
         <ScrollArea className="h-full lg:h-[85vh]">
           <div className="flex flex-col gap-6">
-            <PatternForm onAnalyze={handleAnalyze} isLoading={isLoading} />
+            <PatternForm 
+              onAnalyze={handleAnalyze} 
+              isLoading={isLoading}
+              showConsolidationZones={showConsolidationZones}
+              onToggleConsolidationZones={setShowConsolidationZones}
+            />
 
             <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
               <div className="text-slate-400 text-sm mb-1">
@@ -112,7 +122,7 @@ function App() {
               </div>
             </div>
 
-            {lastPattern === "nrb" && (
+            {lastPattern === "nrb" && showConsolidationZones && hasAnalyzed && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 {(() => {
                   // ✅ NEW WAY - Use backend consolidation_zones directly

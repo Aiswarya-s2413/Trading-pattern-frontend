@@ -1,4 +1,4 @@
-// src/components/TradingViewChart.tsx
+
 import React, { useRef, useEffect } from "react";
 import {
   createChart,
@@ -26,11 +26,11 @@ interface TradingViewChartProps {
   chartTitle: string;
   parameterSeriesName?: string | null;
   parameterSeriesData?: SeriesPoint[];
-  parameterSeriesDataEma5?: SeriesPoint[]; // 🆕 RED LINE
-  parameterSeriesDataEma10?: SeriesPoint[]; // 🆕 BLUE LINE
+  parameterSeriesDataEma5?: SeriesPoint[];
+  parameterSeriesDataEma10?: SeriesPoint[];
   week52High?: number | null;
-  selectedNrbGroupId?: number | null; // Still using this name for compatibility, but it's actually zone_id now
-  consolidationZones?: ConsolidationZone[] | null; // 🆕 Consolidation zones from backend
+  selectedNrbGroupId?: number | null;
+  consolidationZones?: ConsolidationZone[] | null;
 }
 
 const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -39,40 +39,27 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   chartTitle,
   parameterSeriesName,
   parameterSeriesData,
-  parameterSeriesDataEma5, // 🆕
-  parameterSeriesDataEma10, // 🆕
+  parameterSeriesDataEma5,
+  parameterSeriesDataEma10,
   week52High,
   selectedNrbGroupId,
-  consolidationZones, // 🆕
+  consolidationZones,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const parameterLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-
-  // 🆕 Additional series for RSC30
   const parameterLineSeriesEma5Ref = useRef<ISeriesApi<"Line"> | null>(null);
   const parameterLineSeriesEma10Ref = useRef<ISeriesApi<"Line"> | null>(null);
-
   const week52HighSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-
-  // Bowl curves: one line series per bowl pattern
   const bowlSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
-  // NRB range lines: high/low per regime
   const nrbRangeSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
-
-  // Markers plugin instances - one for each series type
-  const candlestickMarkersRef = useRef<ReturnType<
-    typeof createSeriesMarkers<Time>
-  > | null>(null);
-  const parameterLineMarkersRef = useRef<ReturnType<
-    typeof createSeriesMarkers<Time>
-  > | null>(null);
+  const candlestickMarkersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
+  const parameterLineMarkersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // === 1. Create chart + base candlestick series once ===
     if (!chartRef.current) {
       const chart = createChart(chartContainerRef.current, {
         width: chartContainerRef.current.clientWidth,
@@ -90,13 +77,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         },
         rightPriceScale: {
           borderColor: "#485c7b",
-          // 🆕 Default precision for price data
         },
       });
 
       chartRef.current = chart;
 
-      // Candlestick series
       candlestickSeriesRef.current = chart.addSeries(CandlestickSeries, {
         upColor: "#26a69a",
         downColor: "#ef5350",
@@ -105,7 +90,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         wickDownColor: "#ef5350",
       });
 
-      // Primary parameter line series (gray for RSC ratio, or single line for EMA)
       parameterLineSeriesRef.current = chart.addSeries(LineSeries, {
         color: "#2962FF",
         lineWidth: 2,
@@ -114,26 +98,24 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         priceLineVisible: false,
       });
 
-      // 🆕 Additional RSC lines (EMA5 = RED, EMA10 = BLUE)
       parameterLineSeriesEma5Ref.current = chart.addSeries(LineSeries, {
-        color: "rgba(255, 82, 82, 0.9)", // RED
+        color: "rgba(255, 82, 82, 0.9)",
         lineWidth: 2,
         lineStyle: 0,
         crosshairMarkerVisible: true,
         priceLineVisible: false,
-        visible: false, // Hidden by default
+        visible: false,
       });
 
       parameterLineSeriesEma10Ref.current = chart.addSeries(LineSeries, {
-        color: "rgba(33, 150, 243, 0.9)", // BLUE
+        color: "rgba(33, 150, 243, 0.9)",
         lineWidth: 2,
         lineStyle: 0,
         crosshairMarkerVisible: true,
         priceLineVisible: false,
-        visible: false, // Hidden by default
+        visible: false,
       });
 
-      // 52-week high line
       week52HighSeriesRef.current = chart.addSeries(LineSeries, {
         color: "#f59e0b",
         lineWidth: 2,
@@ -142,18 +124,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         priceLineVisible: false,
       });
 
-      // Create markers plugins
       if (candlestickSeriesRef.current && !candlestickMarkersRef.current) {
-        candlestickMarkersRef.current = createSeriesMarkers(
-          candlestickSeriesRef.current,
-          []
-        );
+        candlestickMarkersRef.current = createSeriesMarkers(candlestickSeriesRef.current, []);
       }
       if (parameterLineSeriesRef.current && !parameterLineMarkersRef.current) {
-        parameterLineMarkersRef.current = createSeriesMarkers(
-          parameterLineSeriesRef.current,
-          []
-        );
+        parameterLineMarkersRef.current = createSeriesMarkers(parameterLineSeriesRef.current, []);
       }
     }
 
@@ -164,43 +139,23 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     const parameterLineSeriesEma10 = parameterLineSeriesEma10Ref.current;
     const week52HighSeries = week52HighSeriesRef.current;
 
-    if (
-      !chart ||
-      !candlestickSeries ||
-      !parameterLineSeries ||
-      !parameterLineSeriesEma5 ||
-      !parameterLineSeriesEma10 ||
-      !week52HighSeries
-    )
-      return;
+    if (!chart || !candlestickSeries || !parameterLineSeries || !parameterLineSeriesEma5 || !parameterLineSeriesEma10 || !week52HighSeries) return;
 
-    // === 2. Determine display mode ===
-    const showParameterLine =
-      parameterSeriesName &&
-      parameterSeriesData &&
-      parameterSeriesData.length > 0;
-
-    // 🆕 Check if RSC30 (multi-line mode)
+    const showParameterLine = parameterSeriesName && parameterSeriesData && parameterSeriesData.length > 0;
     const isRSC30 = parameterSeriesName === "rsc30";
 
-    // === 3. Update price data ===
     if (priceData.length > 0 || (showParameterLine && parameterSeriesData)) {
-      // Show/hide series based on parameter selection
       if (showParameterLine) {
-        // Hide candlesticks, show parameter line(s)
         candlestickSeries.applyOptions({
           visible: false,
-          priceScaleId: "", // 🆕 Remove from price scale calculation
+          priceScaleId: "",
         });
 
-        // 🆕 RSC30 Mode: Show 3 lines (Gray, Red, Blue)
         if (isRSC30) {
-          // Set price scale precision to 4 decimals for RSC
           chart.priceScale("right").applyOptions({
             autoScale: true,
           } as any);
 
-          // GRAY LINE - RSC Ratio
           parameterLineSeries.applyOptions({
             visible: true,
             color: "rgba(128, 128, 128, 0.8)",
@@ -221,7 +176,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             parameterLineSeries.setData(formattedLineData);
           }
 
-          // RED LINE - EMA5
           if (parameterSeriesDataEma5 && parameterSeriesDataEma5.length > 0) {
             parameterLineSeriesEma5.applyOptions({
               visible: true,
@@ -242,7 +196,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             parameterLineSeriesEma5.setData([]);
           }
 
-          // BLUE LINE - EMA10
           if (parameterSeriesDataEma10 && parameterSeriesDataEma10.length > 0) {
             parameterLineSeriesEma10.applyOptions({
               visible: true,
@@ -263,8 +216,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             parameterLineSeriesEma10.setData([]);
           }
         } else {
-          // Single-line mode (EMA21, EMA50, EMA200, etc.)
-          // Reset to default 2 decimals for price-based indicators
           chart.priceScale("right").applyOptions({
             autoScale: true,
           } as any);
@@ -274,7 +225,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           parameterLineSeriesEma5.setData([]);
           parameterLineSeriesEma10.setData([]);
 
-          // Set color based on parameter type
           const lineColors: Record<string, string> = {
             ema21: "#00E5FF",
             ema50: "#2962FF",
@@ -304,21 +254,18 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           }
         }
       } else {
-        // Show candlesticks, hide parameter lines
-        // Reset to default 2 decimals for candlesticks
         chart.priceScale("right").applyOptions({
           autoScale: true,
         } as any);
 
         candlestickSeries.applyOptions({
           visible: true,
-          priceScaleId: "right", // 🆕 Add back to price scale
+          priceScaleId: "right",
         });
         parameterLineSeries.applyOptions({ visible: false });
         parameterLineSeriesEma5.applyOptions({ visible: false });
         parameterLineSeriesEma10.applyOptions({ visible: false });
 
-        // Update candlestick data
         const formattedPriceData = priceData.map((item) => ({
           time: item.time as Time,
           open: item.open,
@@ -329,28 +276,24 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         candlestickSeries.setData(formattedPriceData);
       }
 
-      // Data for bowl/marker calculations
-      const dataForCalculations =
-        showParameterLine && parameterSeriesData
-          ? parameterSeriesData.map((item) => ({
-              time: item.time as Time,
-              open: item.value,
-              high: item.value,
-              low: item.value,
-              close: item.value,
-            }))
-          : priceData.map((item) => ({
-              time: item.time as Time,
-              open: item.open,
-              high: item.high,
-              low: item.low,
-              close: item.close,
-            }));
+      const dataForCalculations = showParameterLine && parameterSeriesData
+        ? parameterSeriesData.map((item) => ({
+            time: item.time as Time,
+            open: item.value,
+            high: item.value,
+            low: item.value,
+            close: item.value,
+          }))
+        : priceData.map((item) => ({
+            time: item.time as Time,
+            open: item.open,
+            high: item.high,
+            low: item.low,
+            close: item.close,
+          }));
 
-      // === 4. Pattern logic: Bowl vs NRB ===
       const isBowlPattern = chartTitle.toLowerCase().includes("bowl");
 
-      // Bowl markers
       const bowlMarkers = markers.filter((m) => {
         const mm: any = m;
         if (isBowlPattern && mm.pattern_id != null) return true;
@@ -358,7 +301,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         return hasBowlText === true;
       });
 
-      // Group bowl markers by pattern_id
       const bowls = new Map<number, Marker[]>();
       bowlMarkers.forEach((marker) => {
         const mm: any = marker;
@@ -367,23 +309,16 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         bowls.get(id)!.push(marker);
       });
 
-      // Fallback grouping
       if (bowls.size === 1 && bowls.has(-1) && bowlMarkers.length > 0) {
         bowls.clear();
-        const sortedMarkers = [...bowlMarkers].sort(
-          (a, b) => Number((a as any).time) - Number((b as any).time)
-        );
-
+        const sortedMarkers = [...bowlMarkers].sort((a, b) => Number((a as any).time) - Number((b as any).time));
         const TIME_CLUSTER_THRESHOLD = 30 * 24 * 60 * 60;
         let clusterId = 0;
         let lastTime = 0;
 
         sortedMarkers.forEach((marker) => {
           const markerTime = Number((marker as any).time);
-          if (
-            lastTime === 0 ||
-            markerTime - lastTime > TIME_CLUSTER_THRESHOLD
-          ) {
+          if (lastTime === 0 || markerTime - lastTime > TIME_CLUSTER_THRESHOLD) {
             clusterId++;
           }
           if (!bowls.has(clusterId)) bowls.set(clusterId, []);
@@ -392,7 +327,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         });
       }
 
-      // Clear old bowl series
       bowlSeriesRefs.current.forEach((series, key) => {
         const id = Number(key);
         if (!bowls.has(id)) {
@@ -400,26 +334,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         }
       });
 
-      // Draw bowl curves
-      const bowlColors = [
-        "#2962FF",
-        "#FF6D00",
-        "#00BFA5",
-        "#D500F9",
-        "#FFD600",
-        "#00E676",
-        "#FF1744",
-        "#FFFFFF",
-        "#9C27B0",
-        "#00BCD4",
-      ];
+      const bowlColors = ["#2962FF", "#FF6D00", "#00BFA5", "#D500F9", "#FFD600", "#00E676", "#FF1744", "#FFFFFF", "#9C27B0", "#00BCD4"];
 
       bowls.forEach((patternMarkers, patternId) => {
         if (patternMarkers.length === 0) return;
 
-        patternMarkers.sort(
-          (a, b) => Number((a as any).time) - Number((b as any).time)
-        );
+        patternMarkers.sort((a, b) => Number((a as any).time) - Number((b as any).time));
 
         const numericPatternId = Number(patternId);
         const colorIndex = Math.abs(numericPatternId) % bowlColors.length;
@@ -446,19 +366,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         }
 
         const firstTime = Number((patternMarkers[0] as any).time);
-        const lastTime = Number(
-          (patternMarkers[patternMarkers.length - 1] as any).time
-        );
+        const lastTime = Number((patternMarkers[patternMarkers.length - 1] as any).time);
         const EXTEND_DAYS = 30;
         const extendedFirstTime = firstTime - EXTEND_DAYS * 24 * 60 * 60;
         const extendedLastTime = lastTime + EXTEND_DAYS * 24 * 60 * 60;
 
         const spanCandles = dataForCalculations
-          .filter(
-            (c) =>
-              Number(c.time) >= extendedFirstTime &&
-              Number(c.time) <= extendedLastTime
-          )
+          .filter((c) => Number(c.time) >= extendedFirstTime && Number(c.time) <= extendedLastTime)
           .sort((a, b) => Number(a.time) - Number(b.time));
 
         if (spanCandles.length === 0) {
@@ -471,8 +385,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
         const startLow = spanCandles[0].low;
         const endLow = spanCandles[spanCandles.length - 1].low;
-        const bottomPosition =
-          minLowIndex / Math.max(1, spanCandles.length - 1);
+        const bottomPosition = minLowIndex / Math.max(1, spanCandles.length - 1);
 
         const lineData = spanCandles.map((c, idx) => {
           const t = idx / Math.max(1, spanCandles.length - 1);
@@ -480,12 +393,10 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const parabola = distanceFromBottom * distanceFromBottom;
           const maxDistance = Math.max(bottomPosition, 1 - bottomPosition);
           const maxParabola = maxDistance * maxDistance;
-          const normalizedParabola =
-            maxParabola > 0 ? parabola / maxParabola : 0;
+          const normalizedParabola = maxParabola > 0 ? parabola / maxParabola : 0;
           const bowlDepth = 1 - normalizedParabola;
           const edgeInterpolation = startLow * (1 - t) + endLow * t;
-          const curvedValue =
-            edgeInterpolation + (minLow - edgeInterpolation) * bowlDepth * 0.8;
+          const curvedValue = edgeInterpolation + (minLow - edgeInterpolation) * bowlDepth * 0.8;
 
           return {
             time: c.time,
@@ -496,16 +407,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         bowlSeries.setData(lineData);
       });
 
-      // === 5. NRB range lines ===
       const nrbMarkersWithRange = markers.filter((m: any) => {
-        const isBowlMarker =
-          (isBowlPattern && m.pattern_id != null) ||
-          m.text?.toUpperCase().includes("BOWL");
-        const hasRange =
-          m.range_low != null &&
-          m.range_high != null &&
-          m.range_start_time != null &&
-          m.range_end_time != null;
+        const isBowlMarker = (isBowlPattern && m.pattern_id != null) || m.text?.toUpperCase().includes("BOWL");
+        const hasRange = m.range_low != null && m.range_high != null && m.range_start_time != null && m.range_end_time != null;
         return !isBowlMarker && hasRange;
       });
 
@@ -513,10 +417,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         series.setData([]);
       });
 
-      // Draw per-NRB range lines
       nrbMarkersWithRange.forEach((marker: any) => {
-        const id =
-          marker.nrb_id != null ? String(marker.nrb_id) : String(marker.time);
+        const id = marker.nrb_id != null ? String(marker.nrb_id) : String(marker.time);
 
         const highKey = `${id}-high`;
         let highSeries = nrbRangeSeriesRefs.current.get(highKey);
@@ -531,14 +433,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           nrbRangeSeriesRefs.current.set(highKey, highSeries);
         }
         highSeries.setData([
-          {
-            time: marker.range_start_time as Time,
-            value: marker.range_high as number,
-          },
-          {
-            time: marker.range_end_time as Time,
-            value: marker.range_high as number,
-          },
+          { time: marker.range_start_time as Time, value: marker.range_high as number },
+          { time: marker.range_end_time as Time, value: marker.range_high as number },
         ]);
 
         const lowKey = `${id}-low`;
@@ -554,144 +450,55 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           nrbRangeSeriesRefs.current.set(lowKey, lowSeries);
         }
         lowSeries.setData([
-          {
-            time: marker.range_start_time as Time,
-            value: marker.range_low as number,
-          },
-          {
-            time: marker.range_end_time as Time,
-            value: marker.range_low as number,
-          },
+          { time: marker.range_start_time as Time, value: marker.range_low as number },
+          { time: marker.range_end_time as Time, value: marker.range_low as number },
         ]);
       });
 
-      // Draw consolidation zone boxes using backend-provided zone data
-      // Clear any existing zone box series from previous renders
       nrbRangeSeriesRefs.current.forEach((series, key) => {
         if (key.startsWith("zone-")) {
           series.setData([]);
         }
       });
 
-      // Draw consolidation zone boxes from backend data
       if (consolidationZones && consolidationZones.length > 0) {
-        const boxColor = "#22c55e"; // Tailwind green-500
+        const lineColor = "#22c55e";
 
         consolidationZones.forEach((zone) => {
-          // Only draw zones that have valid time and price data
-          if (
-            !zone.start_time ||
-            !zone.end_time ||
-            zone.min_value == null ||
-            zone.max_value == null
-          ) {
+          if (!zone.start_time || !zone.end_time || zone.min_value == null || zone.max_value == null) {
             return;
           }
 
           const startTime = Number(zone.start_time);
           const endTime = Number(zone.end_time);
-          const minValue = Number(zone.min_value);
           const maxValue = Number(zone.max_value);
 
-          // Guard: need a real time & price span; and time must be strictly increasing
-          if (!(startTime < endTime && minValue < maxValue)) {
+          if (!(startTime < endTime)) {
             return;
           }
 
-          const zoneKeyPrefix = `zone-${zone.zone_id}`;
-
-          // Top horizontal line
-          const topKey = `${zoneKeyPrefix}-top`;
-          let topSeries = nrbRangeSeriesRefs.current.get(topKey);
-          if (!topSeries) {
-            topSeries = chart.addSeries(LineSeries, {
-              color: boxColor,
+          const lineKey = `zone-${zone.zone_id}-line`;
+          let lineSeries = nrbRangeSeriesRefs.current.get(lineKey);
+          
+          if (!lineSeries) {
+            lineSeries = chart.addSeries(LineSeries, {
+              color: lineColor,
               lineWidth: 2,
               lineStyle: 0,
               crosshairMarkerVisible: false,
               priceLineVisible: false,
             });
-            nrbRangeSeriesRefs.current.set(topKey, topSeries);
+            nrbRangeSeriesRefs.current.set(lineKey, lineSeries);
           }
-          topSeries.setData([
+          
+          lineSeries.setData([
             { time: startTime as Time, value: maxValue },
             { time: endTime as Time, value: maxValue },
-          ]);
-
-          // Bottom horizontal line
-          const bottomKey = `${zoneKeyPrefix}-bottom`;
-          let bottomSeries = nrbRangeSeriesRefs.current.get(bottomKey);
-          if (!bottomSeries) {
-            bottomSeries = chart.addSeries(LineSeries, {
-              color: boxColor,
-              lineWidth: 2,
-              lineStyle: 0,
-              crosshairMarkerVisible: false,
-              priceLineVisible: false,
-            });
-            nrbRangeSeriesRefs.current.set(bottomKey, bottomSeries);
-          }
-          bottomSeries.setData([
-            { time: startTime as Time, value: minValue },
-            { time: endTime as Time, value: minValue },
-          ]);
-
-          // For vertical lines we must keep time strictly increasing; use ±1s offsets
-          const leftTime1 = startTime - 1;
-          const leftTime2 = startTime;
-          const rightTime1 = endTime;
-          const rightTime2 = endTime + 1;
-
-          // Left vertical line
-          const leftKey = `${zoneKeyPrefix}-left`;
-          let leftSeries = nrbRangeSeriesRefs.current.get(leftKey);
-          if (!leftSeries) {
-            leftSeries = chart.addSeries(LineSeries, {
-              color: boxColor,
-              lineWidth: 2,
-              lineStyle: 0,
-              crosshairMarkerVisible: false,
-              priceLineVisible: false,
-            });
-            nrbRangeSeriesRefs.current.set(leftKey, leftSeries);
-          }
-          leftSeries.setData([
-            { time: leftTime1 as Time, value: minValue },
-            { time: leftTime2 as Time, value: maxValue },
-          ]);
-
-          // Right vertical line
-          const rightKey = `${zoneKeyPrefix}-right`;
-          let rightSeries = nrbRangeSeriesRefs.current.get(rightKey);
-          if (!rightSeries) {
-            rightSeries = chart.addSeries(LineSeries, {
-              color: boxColor,
-              lineWidth: 2,
-              lineStyle: 0,
-              crosshairMarkerVisible: false,
-              priceLineVisible: false,
-            });
-            nrbRangeSeriesRefs.current.set(rightKey, rightSeries);
-          }
-          rightSeries.setData([
-            { time: rightTime1 as Time, value: minValue },
-            { time: rightTime2 as Time, value: maxValue },
           ]);
         });
       }
 
-      // === 6. Other markers ===
-      // Color-palette for consolidation zones
-      const zoneColors = [
-        "#22c55e",
-        "#3b82f6",
-        "#f97316",
-        "#a855f7",
-        "#eab308",
-        "#ef4444",
-        "#14b8a6",
-        "#6366f1",
-      ];
+      const zoneColors = ["#22c55e", "#3b82f6", "#f97316", "#a855f7", "#eab308", "#ef4444", "#14b8a6", "#6366f1"];
 
       const zoneColorMap = new Map<number, string>();
       markers.forEach((m: any) => {
@@ -703,37 +510,23 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
       const otherMarkers: SeriesMarker<Time>[] = markers
         .filter((m: any) => {
-          const isBowlMarker =
-            (isBowlPattern && m.pattern_id != null) ||
-            m.text?.toUpperCase().includes("BOWL");
+          const isBowlMarker = (isBowlPattern && m.pattern_id != null) || m.text?.toUpperCase().includes("BOWL");
           return !isBowlMarker;
         })
         .map((marker: any) => {
           let color = marker.color || "#2196F3";
-          let shape: SeriesMarker<Time>["shape"] =
-            (marker.shape as any) || "circle";
+          let shape: SeriesMarker<Time>["shape"] = (marker.shape as any) || "circle";
 
-          const isNRBMarker =
-            marker.direction === "Bullish Break" ||
-            marker.direction === "Bearish Break";
+          const isNRBMarker = marker.direction === "Bullish Break" || marker.direction === "Bearish Break";
 
           if (isNRBMarker) {
             const zoneId = marker.consolidation_zone_id as number | null;
-            const baseColor =
-              (zoneId != null
-                ? zoneColorMap.get(zoneId) || color
-                : color) || "#2196F3";
+            const baseColor = (zoneId != null ? zoneColorMap.get(zoneId) || color : color) || "#2196F3";
 
-            if (
-              selectedNrbGroupId != null &&
-              zoneId != null &&
-              zoneId === selectedNrbGroupId
-            ) {
-              // Highlight selected zone
+            if (selectedNrbGroupId != null && zoneId != null && zoneId === selectedNrbGroupId) {
               color = baseColor;
             } else if (selectedNrbGroupId != null) {
-              // De-emphasize non-selected consolidation zones
-              color = "rgba(148, 163, 184, 0.6)"; // slate-400
+              color = "rgba(148, 163, 184, 0.6)";
             } else {
               color = baseColor;
             }
@@ -755,30 +548,25 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
           return {
             time: marker.time as Time,
-            position: (marker.position || "aboveBar") as
-              | "aboveBar"
-              | "belowBar"
-              | "inBar",
+            position: (marker.position || "aboveBar") as "aboveBar" | "belowBar" | "inBar",
             color,
             shape,
             text: isNRBMarker ? "" : marker.text || "",
           };
         });
 
-      // 52-week high line
       if (week52High != null) {
-        const spanData =
-          dataForCalculations.length > 0
-            ? dataForCalculations
-            : showParameterLine && parameterSeriesData
-            ? parameterSeriesData.map((item) => ({
-                time: item.time as Time,
-                value: item.value,
-              }))
-            : priceData.map((item) => ({
-                time: item.time as Time,
-                value: item.close,
-              }));
+        const spanData = dataForCalculations.length > 0
+          ? dataForCalculations
+          : showParameterLine && parameterSeriesData
+          ? parameterSeriesData.map((item) => ({
+              time: item.time as Time,
+              value: item.value,
+            }))
+          : priceData.map((item) => ({
+              time: item.time as Time,
+              value: item.close,
+            }));
 
         if (spanData.length >= 2) {
           const firstTime = spanData[0].time as Time;
@@ -797,7 +585,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         week52HighSeries.applyOptions({ visible: false });
       }
 
-      // Attach markers
       if (showParameterLine && parameterLineMarkersRef.current) {
         parameterLineMarkersRef.current.setMarkers(otherMarkers);
       } else if (!showParameterLine && candlestickMarkersRef.current) {
@@ -806,7 +593,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
       chart.timeScale().fitContent();
     } else {
-      // No data: clear everything
       candlestickSeries.setData([]);
       parameterLineSeries.setData([]);
       parameterLineSeriesEma5.setData([]);
@@ -827,30 +613,21 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     };
 
     window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-    // Focus chart on selected consolidation zone (if any)
+    
     if (selectedNrbGroupId == null) {
       chart.timeScale().fitContent();
-      return;
+      window.removeEventListener("resize", handleResize);
+      return () => {
+        window.removeEventListener("resize", handleResize);
+      };
     }
 
-    // Try to find zone from consolidationZones first
-    // TypeScript doesn't narrow properly in useEffect callbacks
-    // Store length first to avoid accessing consolidationZones.length after check
     const zonesLength = consolidationZones?.length ?? 0;
     if (zonesLength > 0 && consolidationZones != null) {
-      // Safe non-null assertion: we've checked consolidationZones != null above
-      // TypeScript doesn't narrow properly, so we use non-null assertion
       const zones = consolidationZones!;
-      const foundZone = zones.find(
-        (z) => z.zone_id === selectedNrbGroupId
-      );
+      const foundZone = zones.find((z) => z.zone_id === selectedNrbGroupId);
 
-      // TypeScript narrowing: find() can return undefined, so we check
       if (foundZone) {
-        // Safe non-null assertion: we've checked foundZone is truthy above
         const startTime = foundZone!.start_time;
         const endTime = foundZone!.end_time;
         
@@ -859,15 +636,15 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             from: Number(startTime) as Time,
             to: Number(endTime) as Time,
           });
-          return;
+          window.removeEventListener("resize", handleResize);
+          return () => {
+            window.removeEventListener("resize", handleResize);
+          };
         }
       }
     }
     
-    // Fallback: use markers in the selected zone
-    const zoneMarkers = markers.filter(
-      (m: any) => m.consolidation_zone_id === selectedNrbGroupId
-    );
+    const zoneMarkers = markers.filter((m: any) => m.consolidation_zone_id === selectedNrbGroupId);
 
     const times: number[] = [];
     zoneMarkers.forEach((m: any) => {
@@ -888,17 +665,21 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     } else {
       chart.timeScale().fitContent();
     }
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
   }, [
     priceData,
     markers,
     chartTitle,
     parameterSeriesName,
     parameterSeriesData,
-    parameterSeriesDataEma5, // 🆕
-    parameterSeriesDataEma10, // 🆕
+    parameterSeriesDataEma5,
+    parameterSeriesDataEma10,
     week52High,
     selectedNrbGroupId,
-    consolidationZones, // 🆕
+    consolidationZones,
   ]);
 
   return <div ref={chartContainerRef} className="w-full h-full" />;

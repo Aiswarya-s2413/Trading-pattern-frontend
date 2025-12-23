@@ -2,7 +2,7 @@ import { useEffect, type FC } from 'react';
 import { LightweightChart } from './LightweightChart';
 import { useMarketStore } from '../store/marketStore';
 import { SymbolSearch } from './SymbolSearch';
-import TradingViewChart from './pattern/TradingViewChart';
+import TradingViewChart from './pattern/TradingViewChart'; // Adjusted import path based on context
 import { Trash } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -22,17 +22,17 @@ const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
         patternMarkers: markers,
         overlaySeries: seriesData,
         overlaySeriesName: seriesName,
-        overlaySeriesEma5: seriesDataEma5,      // 🆕
-        overlaySeriesEma10: seriesDataEma10,    // 🆕
+        overlaySeriesEma5: seriesDataEma5,      
+        overlaySeriesEma10: seriesDataEma10,    
         patternMode,
         resetPatternMode,
-        consolidationZones,                     // 🆕
+        consolidationZones,                     
+        nrbGroups, // 🆕 Destructure
     } = useMarketStore();
 
     const data = dataCache[`${currentSymbol}-${currentInterval}`] || [];
     const lastCandle = data.length > 0 ? data[data.length - 1] : null;
 
-    // Load initial data when symbol or interval changes
     useEffect(() => {
         loadData();
     }, [currentSymbol, currentInterval, loadData]);
@@ -104,10 +104,11 @@ const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
                         chartTitle={currentSymbol}
                         parameterSeriesName={seriesName}
                         parameterSeriesData={seriesData || []}
-                        parameterSeriesDataEma5={seriesDataEma5 || []}    // 🆕
-                        parameterSeriesDataEma10={seriesDataEma10 || []}  // 🆕
+                        parameterSeriesDataEma5={seriesDataEma5 || []}    
+                        parameterSeriesDataEma10={seriesDataEma10 || []}  
                         selectedNrbGroupId={selectedNrbGroupId}
-                        consolidationZones={consolidationZones}           // 🆕
+                        consolidationZones={consolidationZones}
+                        nrbGroups={nrbGroups} // 🆕 Pass prop
                     /> 
                 </div>
             )}

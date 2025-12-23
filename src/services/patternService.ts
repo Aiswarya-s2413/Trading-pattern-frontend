@@ -10,7 +10,6 @@ export interface PriceData {
   close: number;
 }
 
-// Extra series point type for EMA/RSC line
 export interface SeriesPoint {
   time: number;
   value: number;
@@ -25,14 +24,14 @@ export interface Marker {
   pattern_id?: number;
   score?: number;
 
-  // NRB RANGE-LINE FIELDS (OPTIONAL)
+  // NRB RANGE-LINE FIELDS
   range_low?: number | null;
   range_high?: number | null;
   range_start_time?: number | null;
   range_end_time?: number | null;
   nrb_id?: number | null;
 
-  // 🆕 CONSOLIDATION ZONE FIELDS (OPTIONAL)
+  // CONSOLIDATION ZONE FIELDS
   consolidation_zone_id?: number | null;
   zone_duration_weeks?: number | null;
   zone_start_time?: number | null;
@@ -41,9 +40,40 @@ export interface Marker {
   zone_max_value?: number | null;
   zone_avg_value?: number | null;
   zone_range_pct?: number | null;
+  
+  // NRB GROUP FIELDS
+  nrb_group_id?: number | null;
+  group_level?: number | null;
+  group_start_time?: number | null;
+  group_end_time?: number | null;
+  group_nrb_count?: number | null;
 
-  // Direction info for arrows
   direction?: "Bullish Break" | "Bearish Break" | string;
+}
+
+export interface ConsolidationZone {
+  zone_id: number;
+  start_time: number;
+  end_time: number;
+  duration_weeks: number;
+  first_value: number;
+  min_value: number;
+  max_value: number;
+  avg_value: number;
+  range_pct: number;
+  num_nrbs: number;
+  success_rate_3m: number | null;
+  success_rate_6m: number | null;
+  success_rate_12m: number | null;
+}
+
+export interface NrbGroup {
+  group_id: number;
+  group_level: number;
+  group_start_time: number;
+  group_end_time: number;
+  group_nrb_count: number;
+  nrb_ids: number[];
 }
 
 export interface PatternScanResponse {
@@ -51,20 +81,23 @@ export interface PatternScanResponse {
   pattern: string;
   price_data: PriceData[];
   markers: Marker[];
-  // 🆕 Total consolidation duration (in weeks) when pattern is Narrow Range Break
   total_consolidation_duration_weeks?: number | null;
 
-  // Series info (for EMA/RSC)
   series?: string | null;
   series_data?: SeriesPoint[];
-  series_data_ema5?: SeriesPoint[]; // 🆕 RED LINE
-  series_data_ema10?: SeriesPoint[]; // 🆕 BLUE LINE
+  series_data_ema5?: SeriesPoint[];
+  series_data_ema10?: SeriesPoint[];
 
-  // 🆕 Consolidation zones array from backend
   consolidation_zones?: ConsolidationZone[];
+  nrb_groups?: NrbGroup[]; // 🆕 Added field
 }
 
-// Function to fetch pattern scan data from your backend
+export interface Week52HighResponse {
+  scrip: string;
+  "52week_high": number | null;
+  cutoff_date: string;
+}
+
 export const fetchPatternScanData = async (
   scrip: string,
   pattern: string,
@@ -81,68 +114,31 @@ export const fetchPatternScanData = async (
       success_rate: successRate,
     };
 
-    if (nrbLookback !== null) {
-      params.nrb_lookback = nrbLookback;
-    }
-
-    if (pattern === "Narrow Range Break" && weeks != null) {
-      params.weeks = weeks;
-    }
-
-    // Only include cooldown_weeks parameter for Narrow Range Break pattern
-    // Backend expects cooldown_weeks in weeks (no conversion needed)
-    if (pattern === "Narrow Range Break" && cooldownWeeks != null) {
-      params.cooldown_weeks = cooldownWeeks;
-    }
-
-    if (series) {
-      params.series = series;
-    }
-
-    // Debug: Log the params being sent
-    console.log("[API] Request params:", params);
-    console.log("[API] Cooldown weeks value:", cooldownWeeks);
+    if (nrbLookback !== null) params.nrb_lookback = nrbLookback;
+    if (pattern === "Narrow Range Break" && weeks != null) params.weeks = weeks;
+    if (pattern === "Narrow Range Break" && cooldownWeeks != null) params.cooldown_weeks = cooldownWeeks;
+    if (series) params.series = series;
 
     const response = await axios.get<PatternScanResponse>(
       `${API_BASE_URL}/pattern-scan/`,
       { params }
     );
 
-    console.log("[API] Raw response data:", response.data);
-    console.log(
-      "[API] total_consolidation_duration_weeks:",
-      (response.data as any).total_consolidation_duration_weeks
-    );
-    console.log("[API] Response keys:", Object.keys(response.data));
-
-    // Backward-compatible markers extraction
+    // Extraction Logic
     let rawMarkers = response.data.markers;
-    if (!rawMarkers && (response.data as any).triggers) {
-      rawMarkers = (response.data as any).triggers;
-      console.log("[API] Found markers in 'triggers' field");
-    }
-    if (!rawMarkers && Array.isArray(response.data)) {
-      rawMarkers = response.data as any;
-      console.log("[API] Response is array, treating as markers");
-    }
-
-    console.log("[API] Markers found:", rawMarkers);
-    console.log("[API] Number of markers:", rawMarkers?.length || 0);
+    if (!rawMarkers && (response.data as any).triggers) rawMarkers = (response.data as any).triggers;
+    if (!rawMarkers && Array.isArray(response.data)) rawMarkers = response.data as any;
 
     const normalizedSeries = (response.data as any).series ?? series ?? null;
-    const normalizedSeriesData: SeriesPoint[] =
-      ((response.data as any).series_data as SeriesPoint[]) ?? [];
-    const normalizedSeriesDataEma5: SeriesPoint[] = // 🆕
-      ((response.data as any).series_data_ema5 as SeriesPoint[]) ?? [];
-    const normalizedSeriesDataEma10: SeriesPoint[] = // 🆕
-      ((response.data as any).series_data_ema10 as SeriesPoint[]) ?? [];
+    const normalizedSeriesData: SeriesPoint[] = ((response.data as any).series_data as SeriesPoint[]) ?? [];
+    const normalizedSeriesDataEma5: SeriesPoint[] = ((response.data as any).series_data_ema5 as SeriesPoint[]) ?? [];
+    const normalizedSeriesDataEma10: SeriesPoint[] = ((response.data as any).series_data_ema10 as SeriesPoint[]) ?? [];
 
     const totalConsolidationDurationWeeks =
       (response.data as any).total_consolidation_duration_weeks ??
       (response.data as any).debug?.total_consolidation_duration_weeks ??
       null;
 
-    // Extract consolidation_zones from backend response
     const consolidationZones: ConsolidationZone[] = ((response.data as any).consolidation_zones || []).map(
       (g: any) => ({
         zone_id: g.zone_id ?? g.zoneId ?? null,
@@ -161,7 +157,15 @@ export const fetchPatternScanData = async (
       })
     );
 
-    console.log("[API] Consolidation zones from backend:", consolidationZones);
+    // 🆕 Extract NRB Groups
+    const nrbGroups: NrbGroup[] = ((response.data as any).nrb_groups || []).map((g: any) => ({
+      group_id: g.group_id,
+      group_level: g.group_level,
+      group_start_time: g.group_start_time,
+      group_end_time: g.group_end_time,
+      group_nrb_count: g.group_nrb_count,
+      nrb_ids: g.nrb_ids || []
+    }));
 
     // Normalize markers
     const normalizedData: PatternScanResponse = {
@@ -172,9 +176,7 @@ export const fetchPatternScanData = async (
         time: marker.time,
         pattern_id: marker.pattern_id,
         score: marker.score,
-        position:
-          (marker.position === "overlay" ? "aboveBar" : marker.position) ||
-          "belowBar",
+        position: (marker.position === "overlay" ? "aboveBar" : marker.position) || "belowBar",
         color: marker.color || "#2196F3",
         shape: marker.shape || "circle",
         text: marker.text,
@@ -191,104 +193,38 @@ export const fetchPatternScanData = async (
         zone_max_value: marker.zone_max_value ?? null,
         zone_avg_value: marker.zone_avg_value ?? null,
         zone_range_pct: marker.zone_range_pct ?? null,
+        // 🆕 Group info in markers
+        nrb_group_id: marker.nrb_group_id ?? null,
+        group_level: marker.group_level ?? null,
+        group_start_time: marker.group_start_time ?? null,
+        group_end_time: marker.group_end_time ?? null,
+        group_nrb_count: marker.group_nrb_count ?? null,
         direction: marker.direction,
       })),
-
       total_consolidation_duration_weeks: totalConsolidationDurationWeeks,
-
       series: normalizedSeries,
       series_data: normalizedSeriesData,
-      series_data_ema5: normalizedSeriesDataEma5, // 🆕
-      series_data_ema10: normalizedSeriesDataEma10, // 🆕
-      consolidation_zones: consolidationZones, // 🆕
+      series_data_ema5: normalizedSeriesDataEma5,
+      series_data_ema10: normalizedSeriesDataEma10,
+      consolidation_zones: consolidationZones,
+      nrb_groups: nrbGroups, // 🆕 Pass to response
     };
-
-    console.log(
-      "[API] Normalized markers count:",
-      normalizedData.markers.length
-    );
-    if (normalizedData.markers.length > 0) {
-      console.log("[API] Sample normalized marker:", normalizedData.markers[0]);
-    }
-
-    // Console log: Normalized NRB markers with zone data
-    const normalizedNrbMarkers = normalizedData.markers.filter(
-      (m) =>
-        m.consolidation_zone_id != null ||
-        m.direction === "Bullish Break" ||
-        m.direction === "Bearish Break"
-    );
-    console.log(
-      "[API] Normalized NRB markers with zone data:",
-      normalizedNrbMarkers.map((m) => ({
-        consolidation_zone_id: m.consolidation_zone_id,
-        zone_duration_weeks: m.zone_duration_weeks,
-        zone_start_time: m.zone_start_time,
-        zone_end_time: m.zone_end_time,
-        zone_min_value: m.zone_min_value,
-        zone_max_value: m.zone_max_value,
-        zone_range_pct: m.zone_range_pct,
-        nrb_id: m.nrb_id,
-        direction: m.direction,
-      }))
-    );
-    console.log(
-      "[API] Series:",
-      normalizedData.series,
-      "Points:",
-      normalizedData.series_data?.length ?? 0,
-      "EMA5:",
-      normalizedData.series_data_ema5?.length ?? 0, // 🆕
-      "EMA10:",
-      normalizedData.series_data_ema10?.length ?? 0 // 🆕
-    );
 
     return normalizedData;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error("API Error:", error.response?.data || error.message);
-      throw new Error(
-        error.response?.data?.error || "An unknown API error occurred"
-      );
+      throw new Error(error.response?.data?.error || "An unknown API error occurred");
     }
-    console.error("Network or other error:", error);
     throw new Error("Network or other error during API call");
   }
 };
 
-export interface Week52HighResponse {
-  scrip: string;
-  "52week_high": number | null;
-  cutoff_date: string;
-}
-
-export const fetch52WeekHigh = async (
-  scrip: string
-): Promise<Week52HighResponse> => {
+export const fetch52WeekHigh = async (scrip: string): Promise<Week52HighResponse> => {
   try {
-    const response = await axios.get<Week52HighResponse>(
-      `${API_BASE_URL}/52week-high/`,
-      { params: { scrip } }
-    );
+    const response = await axios.get<Week52HighResponse>(`${API_BASE_URL}/52week-high/`, { params: { scrip } });
     return response.data;
   } catch (error) {
     console.error("Error fetching 52-week high:", error);
     throw error;
   }
 };
-
-export interface ConsolidationZone {
-  zone_id: number;
-  start_time: number;
-  end_time: number;
-  duration_weeks: number;
-  first_value: number;
-  min_value: number;
-  max_value: number;
-  avg_value: number;
-  range_pct: number;
-  num_nrbs: number;
-  success_rate_3m: number | null;  // ✅ New field
-  success_rate_6m: number | null;  // ✅ New field
-  success_rate_12m: number | null; // ✅ New field
-}

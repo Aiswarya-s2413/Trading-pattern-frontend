@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from "react";
 import {
   createChart,
@@ -6,6 +5,7 @@ import {
   CandlestickSeries,
   LineSeries,
   createSeriesMarkers,
+  LineStyle,
 } from "lightweight-charts";
 import type {
   IChartApi,
@@ -18,6 +18,7 @@ import type {
   Marker,
   SeriesPoint,
   ConsolidationZone,
+  NrbGroup,
 } from "../../services/patternService";
 
 interface TradingViewChartProps {
@@ -31,6 +32,7 @@ interface TradingViewChartProps {
   week52High?: number | null;
   selectedNrbGroupId?: number | null;
   consolidationZones?: ConsolidationZone[] | null;
+  nrbGroups?: NrbGroup[] | null;
 }
 
 const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -44,6 +46,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   week52High,
   selectedNrbGroupId,
   consolidationZones,
+  nrbGroups,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -146,154 +149,50 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
     if (priceData.length > 0 || (showParameterLine && parameterSeriesData)) {
       if (showParameterLine) {
-        candlestickSeries.applyOptions({
-          visible: false,
-          priceScaleId: "",
-        });
-
+        candlestickSeries.applyOptions({ visible: false, priceScaleId: "" });
+        
         if (isRSC30) {
-          chart.priceScale("right").applyOptions({
-            autoScale: true,
-          } as any);
+           chart.priceScale("right").applyOptions({ autoScale: true } as any);
+           parameterLineSeries.applyOptions({ visible: true, color: "rgba(128, 128, 128, 0.8)", lineWidth: 1, priceScaleId: "right", priceFormat: { type: "price", precision: 4, minMove: 0.0001 } } as any);
+           if (parameterSeriesData) parameterLineSeries.setData(parameterSeriesData.map(item => ({ time: item.time as Time, value: item.value })));
+           
+           if (parameterSeriesDataEma5 && parameterSeriesDataEma5.length > 0) {
+             parameterLineSeriesEma5.applyOptions({ visible: true, priceScaleId: "right", priceFormat: { type: "price", precision: 4, minMove: 0.0001 } } as any);
+             parameterLineSeriesEma5.setData(parameterSeriesDataEma5.map(item => ({ time: item.time as Time, value: item.value })));
+           } else {
+             parameterLineSeriesEma5.setData([]);
+           }
 
-          parameterLineSeries.applyOptions({
-            visible: true,
-            color: "rgba(128, 128, 128, 0.8)",
-            lineWidth: 1,
-            priceScaleId: "right",
-            priceFormat: {
-              type: "price",
-              precision: 4,
-              minMove: 0.0001,
-            },
-          } as any);
-
-          if (parameterSeriesData && parameterSeriesData.length > 0) {
-            const formattedLineData = parameterSeriesData.map((item) => ({
-              time: item.time as Time,
-              value: item.value,
-            }));
-            parameterLineSeries.setData(formattedLineData);
-          }
-
-          if (parameterSeriesDataEma5 && parameterSeriesDataEma5.length > 0) {
-            parameterLineSeriesEma5.applyOptions({
-              visible: true,
-              priceScaleId: "right",
-              priceFormat: {
-                type: "price",
-                precision: 4,
-                minMove: 0.0001,
-              },
-            } as any);
-            const formattedEma5Data = parameterSeriesDataEma5.map((item) => ({
-              time: item.time as Time,
-              value: item.value,
-            }));
-            parameterLineSeriesEma5.setData(formattedEma5Data);
-          } else {
-            parameterLineSeriesEma5.applyOptions({ visible: false });
-            parameterLineSeriesEma5.setData([]);
-          }
-
-          if (parameterSeriesDataEma10 && parameterSeriesDataEma10.length > 0) {
-            parameterLineSeriesEma10.applyOptions({
-              visible: true,
-              priceScaleId: "right",
-              priceFormat: {
-                type: "price",
-                precision: 4,
-                minMove: 0.0001,
-              },
-            } as any);
-            const formattedEma10Data = parameterSeriesDataEma10.map((item) => ({
-              time: item.time as Time,
-              value: item.value,
-            }));
-            parameterLineSeriesEma10.setData(formattedEma10Data);
-          } else {
-            parameterLineSeriesEma10.applyOptions({ visible: false });
-            parameterLineSeriesEma10.setData([]);
-          }
+           if (parameterSeriesDataEma10 && parameterSeriesDataEma10.length > 0) {
+             parameterLineSeriesEma10.applyOptions({ visible: true, priceScaleId: "right", priceFormat: { type: "price", precision: 4, minMove: 0.0001 } } as any);
+             parameterLineSeriesEma10.setData(parameterSeriesDataEma10.map(item => ({ time: item.time as Time, value: item.value })));
+           } else {
+             parameterLineSeriesEma10.setData([]);
+           }
         } else {
-          chart.priceScale("right").applyOptions({
-            autoScale: true,
-          } as any);
-
-          parameterLineSeriesEma5.applyOptions({ visible: false });
-          parameterLineSeriesEma10.applyOptions({ visible: false });
+          chart.priceScale("right").applyOptions({ autoScale: true } as any);
           parameterLineSeriesEma5.setData([]);
           parameterLineSeriesEma10.setData([]);
-
-          const lineColors: Record<string, string> = {
-            ema21: "#00E5FF",
-            ema50: "#2962FF",
-            ema200: "#7C4DFF",
-            rsc500: "#FFD600",
-          };
+          
+          const lineColors: Record<string, string> = { ema21: "#00E5FF", ema50: "#2962FF", ema200: "#7C4DFF", rsc500: "#FFD600" };
           const lineColor = lineColors[parameterSeriesName || ""] || "#2962FF";
-
-          parameterLineSeries.applyOptions({
-            visible: true,
-            color: lineColor,
-            lineWidth: 2,
-            priceScaleId: "right",
-            priceFormat: {
-              type: "price",
-              precision: 2,
-              minMove: 0.01,
-            },
-          } as any);
-
-          if (parameterSeriesData && parameterSeriesData.length > 0) {
-            const formattedLineData = parameterSeriesData.map((item) => ({
-              time: item.time as Time,
-              value: item.value,
-            }));
-            parameterLineSeries.setData(formattedLineData);
-          }
+          parameterLineSeries.applyOptions({ visible: true, color: lineColor, lineWidth: 2, priceScaleId: "right", priceFormat: { type: "price", precision: 2, minMove: 0.01 } } as any);
+          if (parameterSeriesData) parameterLineSeries.setData(parameterSeriesData.map(item => ({ time: item.time as Time, value: item.value })));
         }
       } else {
-        chart.priceScale("right").applyOptions({
-          autoScale: true,
-        } as any);
-
-        candlestickSeries.applyOptions({
-          visible: true,
-          priceScaleId: "right",
-        });
+        chart.priceScale("right").applyOptions({ autoScale: true } as any);
+        candlestickSeries.applyOptions({ visible: true, priceScaleId: "right" });
         parameterLineSeries.applyOptions({ visible: false });
         parameterLineSeriesEma5.applyOptions({ visible: false });
         parameterLineSeriesEma10.applyOptions({ visible: false });
-
-        const formattedPriceData = priceData.map((item) => ({
-          time: item.time as Time,
-          open: item.open,
-          high: item.high,
-          low: item.low,
-          close: item.close,
-        }));
-        candlestickSeries.setData(formattedPriceData);
+        candlestickSeries.setData(priceData.map(item => ({ time: item.time as Time, open: item.open, high: item.high, low: item.low, close: item.close })));
       }
 
       const dataForCalculations = showParameterLine && parameterSeriesData
-        ? parameterSeriesData.map((item) => ({
-            time: item.time as Time,
-            open: item.value,
-            high: item.value,
-            low: item.value,
-            close: item.value,
-          }))
-        : priceData.map((item) => ({
-            time: item.time as Time,
-            open: item.open,
-            high: item.high,
-            low: item.low,
-            close: item.close,
-          }));
+        ? parameterSeriesData.map((item) => ({ time: item.time as Time, open: item.value, high: item.value, low: item.value, close: item.value }))
+        : priceData.map((item) => ({ time: item.time as Time, open: item.open, high: item.high, low: item.low, close: item.close }));
 
       const isBowlPattern = chartTitle.toLowerCase().includes("bowl");
-
       const bowlMarkers = markers.filter((m) => {
         const mm: any = m;
         if (isBowlPattern && mm.pattern_id != null) return true;
@@ -310,83 +209,55 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       });
 
       if (bowls.size === 1 && bowls.has(-1) && bowlMarkers.length > 0) {
-        bowls.clear();
-        const sortedMarkers = [...bowlMarkers].sort((a, b) => Number((a as any).time) - Number((b as any).time));
-        const TIME_CLUSTER_THRESHOLD = 30 * 24 * 60 * 60;
-        let clusterId = 0;
-        let lastTime = 0;
-
-        sortedMarkers.forEach((marker) => {
-          const markerTime = Number((marker as any).time);
-          if (lastTime === 0 || markerTime - lastTime > TIME_CLUSTER_THRESHOLD) {
-            clusterId++;
-          }
-          if (!bowls.has(clusterId)) bowls.set(clusterId, []);
-          bowls.get(clusterId)!.push(marker);
-          lastTime = markerTime;
-        });
+         bowls.clear();
+         const sortedMarkers = [...bowlMarkers].sort((a, b) => Number((a as any).time) - Number((b as any).time));
+         const TIME_CLUSTER_THRESHOLD = 30 * 24 * 60 * 60;
+         let clusterId = 0;
+         let lastTime = 0;
+         sortedMarkers.forEach((marker) => {
+           const markerTime = Number((marker as any).time);
+           if (lastTime === 0 || markerTime - lastTime > TIME_CLUSTER_THRESHOLD) clusterId++;
+           if (!bowls.has(clusterId)) bowls.set(clusterId, []);
+           bowls.get(clusterId)!.push(marker);
+           lastTime = markerTime;
+         });
       }
 
       bowlSeriesRefs.current.forEach((series, key) => {
         const id = Number(key);
-        if (!bowls.has(id)) {
-          series.setData([]);
-        }
+        if (!bowls.has(id)) series.setData([]);
       });
 
       const bowlColors = ["#2962FF", "#FF6D00", "#00BFA5", "#D500F9", "#FFD600", "#00E676", "#FF1744", "#FFFFFF", "#9C27B0", "#00BCD4"];
-
       bowls.forEach((patternMarkers, patternId) => {
         if (patternMarkers.length === 0) return;
-
         patternMarkers.sort((a, b) => Number((a as any).time) - Number((b as any).time));
-
         const numericPatternId = Number(patternId);
         const colorIndex = Math.abs(numericPatternId) % bowlColors.length;
         const color = bowlColors[colorIndex];
-
         const seriesKey = String(numericPatternId);
         let bowlSeries = bowlSeriesRefs.current.get(seriesKey);
-
         if (!bowlSeries) {
-          bowlSeries = chart.addSeries(LineSeries, {
-            color,
-            lineWidth: 3,
-            lineStyle: 0,
-            crosshairMarkerVisible: false,
-            priceLineVisible: false,
-          });
+          bowlSeries = chart.addSeries(LineSeries, { color, lineWidth: 3, lineStyle: 0, crosshairMarkerVisible: false, priceLineVisible: false });
           bowlSeriesRefs.current.set(seriesKey, bowlSeries);
         } else {
-          bowlSeries.applyOptions({
-            color,
-            lineWidth: 3,
-            lineStyle: 0,
-          });
+          bowlSeries.applyOptions({ color, lineWidth: 3, lineStyle: 0 });
         }
-
+        
         const firstTime = Number((patternMarkers[0] as any).time);
         const lastTime = Number((patternMarkers[patternMarkers.length - 1] as any).time);
         const EXTEND_DAYS = 30;
         const extendedFirstTime = firstTime - EXTEND_DAYS * 24 * 60 * 60;
         const extendedLastTime = lastTime + EXTEND_DAYS * 24 * 60 * 60;
+        const spanCandles = dataForCalculations.filter((c) => Number(c.time) >= extendedFirstTime && Number(c.time) <= extendedLastTime).sort((a, b) => Number(a.time) - Number(b.time));
 
-        const spanCandles = dataForCalculations
-          .filter((c) => Number(c.time) >= extendedFirstTime && Number(c.time) <= extendedLastTime)
-          .sort((a, b) => Number(a.time) - Number(b.time));
-
-        if (spanCandles.length === 0) {
-          bowlSeries.setData([]);
-          return;
-        }
+        if (spanCandles.length === 0) { bowlSeries.setData([]); return; }
 
         const minLow = Math.min(...spanCandles.map((c) => c.low));
         const minLowIndex = spanCandles.findIndex((c) => c.low === minLow);
-
         const startLow = spanCandles[0].low;
         const endLow = spanCandles[spanCandles.length - 1].low;
         const bottomPosition = minLowIndex / Math.max(1, spanCandles.length - 1);
-
         const lineData = spanCandles.map((c, idx) => {
           const t = idx / Math.max(1, spanCandles.length - 1);
           const distanceFromBottom = t - bottomPosition;
@@ -397,14 +268,17 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const bowlDepth = 1 - normalizedParabola;
           const edgeInterpolation = startLow * (1 - t) + endLow * t;
           const curvedValue = edgeInterpolation + (minLow - edgeInterpolation) * bowlDepth * 0.8;
-
-          return {
-            time: c.time,
-            value: 0.65 * curvedValue + 0.35 * c.low,
-          };
+          return { time: c.time, value: 0.65 * curvedValue + 0.35 * c.low };
         });
-
         bowlSeries.setData(lineData);
+      });
+
+      // ----------------------------------------------------
+      // START NRB AND CONSOLIDATION LINES
+      // ----------------------------------------------------
+
+      nrbRangeSeriesRefs.current.forEach((series) => {
+        series.setData([]);
       });
 
       const nrbMarkersWithRange = markers.filter((m: any) => {
@@ -413,78 +287,52 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         return !isBowlMarker && hasRange;
       });
 
-      nrbRangeSeriesRefs.current.forEach((series) => {
-        series.setData([]);
-      });
-
       nrbMarkersWithRange.forEach((marker: any) => {
         const id = marker.nrb_id != null ? String(marker.nrb_id) : String(marker.time);
+        
+        // Ensure strictly ascending time for range lines
+        if (Number(marker.range_start_time) >= Number(marker.range_end_time)) return;
 
         const highKey = `${id}-high`;
         let highSeries = nrbRangeSeriesRefs.current.get(highKey);
         if (!highSeries) {
-          highSeries = chart.addSeries(LineSeries, {
-            color: "#888888",
-            lineWidth: 1,
-            lineStyle: 1,
-            crosshairMarkerVisible: false,
-            priceLineVisible: false,
-          });
+          highSeries = chart.addSeries(LineSeries, { color: "#888888", lineWidth: 1, lineStyle: 1, crosshairMarkerVisible: false, priceLineVisible: false });
           nrbRangeSeriesRefs.current.set(highKey, highSeries);
         }
-        highSeries.setData([
-          { time: marker.range_start_time as Time, value: marker.range_high as number },
-          { time: marker.range_end_time as Time, value: marker.range_high as number },
-        ]);
+        highSeries.setData([{ time: marker.range_start_time as Time, value: marker.range_high as number }, { time: marker.range_end_time as Time, value: marker.range_high as number }]);
 
         const lowKey = `${id}-low`;
         let lowSeries = nrbRangeSeriesRefs.current.get(lowKey);
         if (!lowSeries) {
-          lowSeries = chart.addSeries(LineSeries, {
-            color: "#888888",
-            lineWidth: 1,
-            lineStyle: 1,
-            crosshairMarkerVisible: false,
-            priceLineVisible: false,
-          });
+          lowSeries = chart.addSeries(LineSeries, { color: "#888888", lineWidth: 1, lineStyle: 1, crosshairMarkerVisible: false, priceLineVisible: false });
           nrbRangeSeriesRefs.current.set(lowKey, lowSeries);
         }
-        lowSeries.setData([
-          { time: marker.range_start_time as Time, value: marker.range_low as number },
-          { time: marker.range_end_time as Time, value: marker.range_low as number },
-        ]);
+        lowSeries.setData([{ time: marker.range_start_time as Time, value: marker.range_low as number }, { time: marker.range_end_time as Time, value: marker.range_low as number }]);
       });
 
-      nrbRangeSeriesRefs.current.forEach((series, key) => {
-        if (key.startsWith("zone-")) {
-          series.setData([]);
-        }
-      });
+      // 🆕 NEW: Draw NRB Group Horizontal Lines
+      if (nrbGroups && nrbGroups.length > 0) {
+        const groupLineColor = "#FFEA00"; // 🟡 UPDATED: Bright Yellow for visibility
+        
+        nrbGroups.forEach((group) => {
+          if (!group.group_start_time || !group.group_end_time || group.group_level == null) return;
 
-      if (consolidationZones && consolidationZones.length > 0) {
-        const lineColor = "#22c55e";
+          const startTime = Number(group.group_start_time);
+          const endTime = Number(group.group_end_time);
+          const level = Number(group.group_level);
 
-        consolidationZones.forEach((zone) => {
-          if (!zone.start_time || !zone.end_time || zone.min_value == null || zone.max_value == null) {
-            return;
-          }
+          // Strictly Less Than (<) is required to prevent crash
+          if (startTime >= endTime) return;
 
-          const startTime = Number(zone.start_time);
-          const endTime = Number(zone.end_time);
-          const maxValue = Number(zone.max_value);
-
-          if (!(startTime < endTime)) {
-            return;
-          }
-
-          const lineKey = `zone-${zone.zone_id}-line`;
+          const lineKey = `nrb-group-${group.group_id}-line`;
+          
           let lineSeries = nrbRangeSeriesRefs.current.get(lineKey);
           
           if (!lineSeries) {
             lineSeries = chart.addSeries(LineSeries, {
-              color: lineColor,
+              color: groupLineColor,
               lineWidth: 2,
-              lineStyle: 0,
+              lineStyle: LineStyle.Dashed,
               crosshairMarkerVisible: false,
               priceLineVisible: false,
             });
@@ -492,14 +340,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           }
           
           lineSeries.setData([
-            { time: startTime as Time, value: maxValue },
-            { time: endTime as Time, value: maxValue },
+            { time: startTime as Time, value: level },
+            { time: endTime as Time, value: level }
           ]);
         });
       }
 
       const zoneColors = ["#22c55e", "#3b82f6", "#f97316", "#a855f7", "#eab308", "#ef4444", "#14b8a6", "#6366f1"];
-
       const zoneColorMap = new Map<number, string>();
       markers.forEach((m: any) => {
         if (m.consolidation_zone_id != null && !zoneColorMap.has(m.consolidation_zone_id)) {
@@ -516,13 +363,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         .map((marker: any) => {
           let color = marker.color || "#2196F3";
           let shape: SeriesMarker<Time>["shape"] = (marker.shape as any) || "circle";
-
           const isNRBMarker = marker.direction === "Bullish Break" || marker.direction === "Bearish Break";
 
           if (isNRBMarker) {
             const zoneId = marker.consolidation_zone_id as number | null;
             const baseColor = (zoneId != null ? zoneColorMap.get(zoneId) || color : color) || "#2196F3";
-
             if (selectedNrbGroupId != null && zoneId != null && zoneId === selectedNrbGroupId) {
               color = baseColor;
             } else if (selectedNrbGroupId != null) {
@@ -530,51 +375,21 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             } else {
               color = baseColor;
             }
-
-            if (marker.direction === "Bullish Break") {
-              shape = "arrowUp";
-            } else if (marker.direction === "Bearish Break") {
-              shape = "arrowDown";
-            }
+            if (marker.direction === "Bullish Break") shape = "arrowUp";
+            else if (marker.direction === "Bearish Break") shape = "arrowDown";
           } else {
-            if (marker.direction === "Bullish Break") {
-              color = "#00E5FF";
-              shape = "arrowUp";
-            } else if (marker.direction === "Bearish Break") {
-              color = "#FFD600";
-              shape = "arrowDown";
-            }
+            if (marker.direction === "Bullish Break") { color = "#00E5FF"; shape = "arrowUp"; }
+            else if (marker.direction === "Bearish Break") { color = "#FFD600"; shape = "arrowDown"; }
           }
-
-          return {
-            time: marker.time as Time,
-            position: (marker.position || "aboveBar") as "aboveBar" | "belowBar" | "inBar",
-            color,
-            shape,
-            text: isNRBMarker ? "" : marker.text || "",
-          };
+          return { time: marker.time as Time, position: (marker.position || "aboveBar") as "aboveBar" | "belowBar" | "inBar", color, shape, text: isNRBMarker ? "" : marker.text || "" };
         });
 
       if (week52High != null) {
-        const spanData = dataForCalculations.length > 0
-          ? dataForCalculations
-          : showParameterLine && parameterSeriesData
-          ? parameterSeriesData.map((item) => ({
-              time: item.time as Time,
-              value: item.value,
-            }))
-          : priceData.map((item) => ({
-              time: item.time as Time,
-              value: item.close,
-            }));
-
+        const spanData = dataForCalculations.length > 0 ? dataForCalculations : showParameterLine && parameterSeriesData ? parameterSeriesData.map((item) => ({ time: item.time as Time, value: item.value })) : priceData.map((item) => ({ time: item.time as Time, value: item.close }));
         if (spanData.length >= 2) {
           const firstTime = spanData[0].time as Time;
           const lastTime = spanData[spanData.length - 1].time as Time;
-          week52HighSeries.setData([
-            { time: firstTime, value: week52High },
-            { time: lastTime, value: week52High },
-          ]);
+          week52HighSeries.setData([{ time: firstTime, value: week52High }, { time: lastTime, value: week52High }]);
           week52HighSeries.applyOptions({ visible: true });
         } else {
           week52HighSeries.setData([]);
@@ -585,11 +400,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         week52HighSeries.applyOptions({ visible: false });
       }
 
-      if (showParameterLine && parameterLineMarkersRef.current) {
-        parameterLineMarkersRef.current.setMarkers(otherMarkers);
-      } else if (!showParameterLine && candlestickMarkersRef.current) {
-        candlestickMarkersRef.current.setMarkers(otherMarkers);
-      }
+      if (showParameterLine && parameterLineMarkersRef.current) parameterLineMarkersRef.current.setMarkers(otherMarkers);
+      else if (!showParameterLine && candlestickMarkersRef.current) candlestickMarkersRef.current.setMarkers(otherMarkers);
 
       chart.timeScale().fitContent();
     } else {
@@ -604,48 +416,31 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       nrbRangeSeriesRefs.current.forEach((series) => series.setData([]));
     }
 
-    const handleResize = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-        });
-      }
-    };
-
+    const handleResize = () => { if (chartContainerRef.current && chartRef.current) chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth }); };
     window.addEventListener("resize", handleResize);
     
     if (selectedNrbGroupId == null) {
       chart.timeScale().fitContent();
       window.removeEventListener("resize", handleResize);
-      return () => {
-        window.removeEventListener("resize", handleResize);
-      };
+      return () => { window.removeEventListener("resize", handleResize); };
     }
 
     const zonesLength = consolidationZones?.length ?? 0;
     if (zonesLength > 0 && consolidationZones != null) {
       const zones = consolidationZones!;
       const foundZone = zones.find((z) => z.zone_id === selectedNrbGroupId);
-
       if (foundZone) {
         const startTime = foundZone!.start_time;
         const endTime = foundZone!.end_time;
-        
         if (startTime != null && endTime != null) {
-          chart.timeScale().setVisibleRange({
-            from: Number(startTime) as Time,
-            to: Number(endTime) as Time,
-          });
+          chart.timeScale().setVisibleRange({ from: Number(startTime) as Time, to: Number(endTime) as Time });
           window.removeEventListener("resize", handleResize);
-          return () => {
-            window.removeEventListener("resize", handleResize);
-          };
+          return () => { window.removeEventListener("resize", handleResize); };
         }
       }
     }
     
     const zoneMarkers = markers.filter((m: any) => m.consolidation_zone_id === selectedNrbGroupId);
-
     const times: number[] = [];
     zoneMarkers.forEach((m: any) => {
       if (m.time != null) times.push(Number(m.time));
@@ -658,17 +453,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     if (times.length >= 2) {
       const minTime = Math.min(...times);
       const maxTime = Math.max(...times);
-      chart.timeScale().setVisibleRange({
-        from: minTime as Time,
-        to: maxTime as Time,
-      });
+      chart.timeScale().setVisibleRange({ from: minTime as Time, to: maxTime as Time });
     } else {
       chart.timeScale().fitContent();
     }
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
+    return () => { window.removeEventListener("resize", handleResize); };
   }, [
     priceData,
     markers,
@@ -680,6 +470,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     week52High,
     selectedNrbGroupId,
     consolidationZones,
+    nrbGroups,
   ]);
 
   return <div ref={chartContainerRef} className="w-full h-full" />;

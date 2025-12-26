@@ -12,6 +12,7 @@ import type {
   ISeriesApi,
   Time,
   SeriesMarker,
+  MouseEventParams,
 } from "lightweight-charts";
 import type {
   PriceData,
@@ -49,6 +50,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   nrbGroups,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const infoBoxRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const parameterLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
@@ -80,6 +82,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         },
         rightPriceScale: {
           borderColor: "#485c7b",
+        },
+        crosshair: {
+          mode: 1, // Magnet mode
         },
       });
 
@@ -133,6 +138,106 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       if (parameterLineSeriesRef.current && !parameterLineMarkersRef.current) {
         parameterLineMarkersRef.current = createSeriesMarkers(parameterLineSeriesRef.current, []);
       }
+
+      // ----------------------------------------------------
+      // 🆕 ROBUST INFO BOX INTERACTION
+      // ----------------------------------------------------
+      chart.subscribeCrosshairMove((param: MouseEventParams) => {
+        if (
+          !param.point ||
+          !nrbGroups ||
+          nrbGroups.length === 0 ||
+          !infoBoxRef.current ||
+          !candlestickSeriesRef.current ||
+          !chartRef.current
+        ) {
+          if (infoBoxRef.current) infoBoxRef.current.style.display = "none";
+          return;
+        }
+
+        // 1. Get Mouse Coordinates
+        const mouseX = param.point.x;
+        const mouseY = param.point.y;
+
+        // 2. Convert X coordinate to Time (Timestamp)
+        // This works even if the mouse is not snapped to a bar
+        const mouseTime = chartRef.current.timeScale().coordinateToTime(mouseX);
+
+        if (!mouseTime) {
+          if (infoBoxRef.current) infoBoxRef.current.style.display = "none";
+          return;
+        }
+
+        const mouseTs = Number(mouseTime);
+        let foundGroup: NrbGroup | null = null;
+
+        // 3. Iterate Groups to find match
+        for (const group of nrbGroups) {
+          if (!group.group_start_time || !group.group_end_time || group.group_level == null) continue;
+
+          const start = Number(group.group_start_time);
+          const end = Number(group.group_end_time);
+
+          // A. Time Check: Is mouse strictly within the start/end duration?
+          if (mouseTs >= start && mouseTs <= end) {
+            
+            // B. Price Check: Convert Group Level to Y-Coordinate
+            const priceCoordinate = candlestickSeriesRef.current.priceToCoordinate(group.group_level);
+            
+            // If the line is currently visible on screen
+            if (priceCoordinate !== null) {
+              const distance = Math.abs(mouseY - priceCoordinate);
+              
+              // C. Hit Test: Mouse must be within 30px vertically of the line
+              if (distance < 30) {
+                foundGroup = group;
+                break; // Found the top-most match
+              }
+            }
+          }
+        }
+
+        // 4. Update Info Box
+        if (foundGroup) {
+          const formatRate = (rate?: number | null) => {
+            if (rate == null) return `<span style="color: #64748b;">--</span>`;
+            const color = rate >= 0 ? "#4caf50" : "#ef5350";
+            return `<span style="color: ${color}; font-weight: 700;">${rate > 0 ? '+' : ''}${rate.toFixed(1)}%</span>`;
+          };
+
+          const durationText = foundGroup.group_duration_weeks
+            ? `${foundGroup.group_duration_weeks} weeks`
+            : "N/A";
+
+          infoBoxRef.current.style.display = "block";
+          infoBoxRef.current.innerHTML = `
+                <div style="margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 6px;">
+                    <div style="font-weight: 700; color: #FFEA00; font-size: 13px;">NRB Pattern Group</div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #94a3b8;">
+                        <span>Level: <span style="color: #e2e8f0;">${Number(foundGroup.group_level).toFixed(2)}</span></span>
+                        <span>Dur: <span style="color: #e2e8f0;">${durationText}</span></span>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
+                    <div>
+                        <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">3 MONTH</div>
+                        <div style="font-size: 12px;">${formatRate(foundGroup.success_rate_3m)}</div>
+                    </div>
+                    <div style="border-left: 1px solid #334155; border-right: 1px solid #334155;">
+                        <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">6 MONTH</div>
+                        <div style="font-size: 12px;">${formatRate(foundGroup.success_rate_6m)}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">12 MONTH</div>
+                        <div style="font-size: 12px;">${formatRate(foundGroup.success_rate_12m)}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+          infoBoxRef.current.style.display = "none";
+        }
+      });
     }
 
     const chart = chartRef.current;
@@ -290,7 +395,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       nrbMarkersWithRange.forEach((marker: any) => {
         const id = marker.nrb_id != null ? String(marker.nrb_id) : String(marker.time);
         
-        // Ensure strictly ascending time for range lines
         if (Number(marker.range_start_time) >= Number(marker.range_end_time)) return;
 
         const highKey = `${id}-high`;
@@ -310,9 +414,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lowSeries.setData([{ time: marker.range_start_time as Time, value: marker.range_low as number }, { time: marker.range_end_time as Time, value: marker.range_low as number }]);
       });
 
-      // 🆕 NEW: Draw NRB Group Horizontal Lines
       if (nrbGroups && nrbGroups.length > 0) {
-        const groupLineColor = "#FFEA00"; // 🟡 UPDATED: Bright Yellow for visibility
+        const groupLineColor = "#FFEA00"; // Bright Yellow
         
         nrbGroups.forEach((group) => {
           if (!group.group_start_time || !group.group_end_time || group.group_level == null) return;
@@ -321,7 +424,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const endTime = Number(group.group_end_time);
           const level = Number(group.group_level);
 
-          // Strictly Less Than (<) is required to prevent crash
           if (startTime >= endTime) return;
 
           const lineKey = `nrb-group-${group.group_id}-line`;
@@ -473,7 +575,20 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     nrbGroups,
   ]);
 
-  return <div ref={chartContainerRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={chartContainerRef} className="w-full h-full" />
+      {/* Fixed Info Box Element */}
+      <div
+        ref={infoBoxRef}
+        className="absolute top-2 left-2 z-50 p-3 text-xs bg-slate-900/90 border border-slate-700 rounded-md shadow-xl pointer-events-none text-white hidden"
+        style={{
+          minWidth: '220px',
+          backdropFilter: 'blur(4px)'
+        }}
+      />
+    </div>
+  );
 };
 
 export default TradingViewChart;

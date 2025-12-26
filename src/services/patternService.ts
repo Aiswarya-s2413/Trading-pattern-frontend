@@ -3,7 +3,7 @@ import axios from "axios";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export interface PriceData {
-  time: number; // Unix timestamp
+  time: number;
   open: number;
   high: number;
   low: number;
@@ -16,7 +16,7 @@ export interface SeriesPoint {
 }
 
 export interface Marker {
-  time: number; // Unix timestamp
+  time: number;
   position: "aboveBar" | "belowBar" | "inBar";
   color: string;
   shape: "arrowUp" | "arrowDown" | "circle" | "square";
@@ -24,14 +24,12 @@ export interface Marker {
   pattern_id?: number;
   score?: number;
 
-  // NRB RANGE-LINE FIELDS
   range_low?: number | null;
   range_high?: number | null;
   range_start_time?: number | null;
   range_end_time?: number | null;
   nrb_id?: number | null;
 
-  // CONSOLIDATION ZONE FIELDS
   consolidation_zone_id?: number | null;
   zone_duration_weeks?: number | null;
   zone_start_time?: number | null;
@@ -41,7 +39,6 @@ export interface Marker {
   zone_avg_value?: number | null;
   zone_range_pct?: number | null;
   
-  // NRB GROUP FIELDS
   nrb_group_id?: number | null;
   group_level?: number | null;
   group_start_time?: number | null;
@@ -67,6 +64,7 @@ export interface ConsolidationZone {
   success_rate_12m: number | null;
 }
 
+// 🆕 UPDATED INTERFACE
 export interface NrbGroup {
   group_id: number;
   group_level: number;
@@ -74,6 +72,11 @@ export interface NrbGroup {
   group_end_time: number;
   group_nrb_count: number;
   nrb_ids: number[];
+  // New fields
+  group_duration_weeks?: number | null;
+  success_rate_3m?: number | null;
+  success_rate_6m?: number | null;
+  success_rate_12m?: number | null;
 }
 
 export interface PatternScanResponse {
@@ -89,7 +92,7 @@ export interface PatternScanResponse {
   series_data_ema10?: SeriesPoint[];
 
   consolidation_zones?: ConsolidationZone[];
-  nrb_groups?: NrbGroup[]; // 🆕 Added field
+  nrb_groups?: NrbGroup[];
 }
 
 export interface Week52HighResponse {
@@ -124,7 +127,6 @@ export const fetchPatternScanData = async (
       { params }
     );
 
-    // Extraction Logic
     let rawMarkers = response.data.markers;
     if (!rawMarkers && (response.data as any).triggers) rawMarkers = (response.data as any).triggers;
     if (!rawMarkers && Array.isArray(response.data)) rawMarkers = response.data as any;
@@ -157,17 +159,21 @@ export const fetchPatternScanData = async (
       })
     );
 
-    // 🆕 Extract NRB Groups
+    // 🆕 UPDATED MAPPING Logic
     const nrbGroups: NrbGroup[] = ((response.data as any).nrb_groups || []).map((g: any) => ({
       group_id: g.group_id,
       group_level: g.group_level,
       group_start_time: g.group_start_time,
       group_end_time: g.group_end_time,
       group_nrb_count: g.group_nrb_count,
-      nrb_ids: g.nrb_ids || []
+      nrb_ids: g.nrb_ids || [],
+      // Map new fields from backend
+      group_duration_weeks: g.group_duration_weeks,
+      success_rate_3m: g.success_rate_3m,
+      success_rate_6m: g.success_rate_6m,
+      success_rate_12m: g.success_rate_12m,
     }));
 
-    // Normalize markers
     const normalizedData: PatternScanResponse = {
       scrip: response.data.scrip || scrip,
       pattern: response.data.pattern || pattern,
@@ -193,7 +199,6 @@ export const fetchPatternScanData = async (
         zone_max_value: marker.zone_max_value ?? null,
         zone_avg_value: marker.zone_avg_value ?? null,
         zone_range_pct: marker.zone_range_pct ?? null,
-        // 🆕 Group info in markers
         nrb_group_id: marker.nrb_group_id ?? null,
         group_level: marker.group_level ?? null,
         group_start_time: marker.group_start_time ?? null,
@@ -207,7 +212,7 @@ export const fetchPatternScanData = async (
       series_data_ema5: normalizedSeriesDataEma5,
       series_data_ema10: normalizedSeriesDataEma10,
       consolidation_zones: consolidationZones,
-      nrb_groups: nrbGroups, // 🆕 Pass to response
+      nrb_groups: nrbGroups,
     };
 
     return normalizedData;

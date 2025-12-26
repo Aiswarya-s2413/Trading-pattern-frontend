@@ -11,13 +11,22 @@ import { ScrollArea } from "./components/ui/scroll-area";
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
-  const [week52High, setWeek52High] = useState<number | null | "unavailable">(null);
+  const [week52High, setWeek52High] = useState<number | null | "unavailable">(
+    null
+  );
   const [lastPattern, setLastPattern] = useState<"bowl" | "nrb">("bowl");
-  const [selectedNrbGroupId, setSelectedNrbGroupId] = useState<number | null>(null);
+  const [selectedNrbGroupId, setSelectedNrbGroupId] = useState<number | null>(
+    null
+  );
+  // Separate state for selecting a specific NRB Group (Yellow Line)
+  const [selectedNrbLevelId, setSelectedNrbLevelId] = useState<number | null>(
+    null
+  );
+  
   const [showConsolidationZones, setShowConsolidationZones] = useState(false);
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
-  const { currentSymbol, setPatternData, consolidationZones } = useMarketStore();
+  const { currentSymbol, setPatternData, consolidationZones, nrbGroups } = useMarketStore();
 
   useEffect(() => {
     const load52WeekHigh = async () => {
@@ -39,10 +48,11 @@ function App() {
   const handleAnalyze = async (data: PatternData) => {
     setIsLoading(true);
     setLastPattern(data.pattern as "bowl" | "nrb");
-    setHasAnalyzed(false); 
+    setHasAnalyzed(false);
 
     if (data.pattern !== "nrb") {
       setSelectedNrbGroupId(null);
+      setSelectedNrbLevelId(null);
     }
 
     try {
@@ -58,7 +68,6 @@ function App() {
 
       console.log("Normalized Pattern Data:", response);
 
-      // Update the store
       setPatternData(
         response.markers,
         response.price_data,
@@ -69,7 +78,7 @@ function App() {
         response.series_data_ema10, 
         response.total_consolidation_duration_weeks ?? null, 
         response.consolidation_zones ?? null,
-        response.nrb_groups ?? null // 🆕 Pass NRB Groups
+        response.nrb_groups ?? null 
       );
       
       setHasAnalyzed(true);
@@ -79,6 +88,32 @@ function App() {
       setIsLoading(false);
     }
   };
+
+  // Helper functions for rendering
+  const formatDate = (timestamp: number | null | undefined) => {
+    if (!timestamp) return "-";
+    const d = new Date(timestamp * 1000);
+    return d.toLocaleDateString("en-IN", {
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const formatWeeks = (weeks: number | null | undefined) => {
+    if (weeks == null) return null;
+    if (Number.isInteger(weeks)) return weeks.toString();
+    return weeks.toFixed(1);
+  };
+
+  const formatSuccessRate = (rate: number | null | undefined) => {
+    if (rate == null) return <span className="text-slate-600">-</span>;
+    const color = rate >= 0 ? "text-green-400" : "text-red-400";
+    const sign = rate >= 0 ? "+" : "";
+    return <span className={color}>{sign}{rate.toFixed(1)}%</span>;
+  };
+
+  // Filter groups to only show those with more than 1 NRB
+  const visibleNrbGroups = nrbGroups ? nrbGroups.filter(g => (g.group_nrb_count || 0) > 1) : [];
 
   return (
     <div className="min-h-screen bg-dark-bg px-2 py-3 flex flex-col gap-6">
@@ -90,6 +125,8 @@ function App() {
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 h-[85vh]">
+          {/* We pass selectedNrbLevelId if you want to highlight the line, 
+              though currently ChartContainer mainly handles consolidation zone selection */}
           <ChartContainer selectedNrbGroupId={selectedNrbGroupId} />
         </div>
 
@@ -117,13 +154,87 @@ function App() {
               </div>
             </div>
 
+            {/* 🆕 1. NRB GROUPS (Yellow Lines) LIST - Filtered */}
+            {lastPattern === "nrb" && hasAnalyzed && visibleNrbGroups.length > 0 && (
+              <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
+                <div className="mb-3">
+                  <div className="text-slate-400 text-sm">
+                    Same Level NRB Groups ({currentSymbol})
+                  </div>
+                  <div className="text-lg font-semibold text-white">
+                    {visibleNrbGroups.length} Level{visibleNrbGroups.length === 1 ? "" : "s"} found
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {visibleNrbGroups.map((group, index) => {
+                    const isSelected = selectedNrbLevelId === group.group_id;
+
+                    return (
+                      <button
+                        key={group.group_id}
+                        type="button"
+                        onClick={() => setSelectedNrbLevelId(isSelected ? null : group.group_id)}
+                        className={`w-full text-left px-3 py-2 rounded border text-sm transition-colors ${
+                          isSelected
+                            ? "border-yellow-500 bg-slate-800 text-white"
+                            : "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="font-medium text-yellow-400">
+                            Level: {group.group_level?.toFixed(2)}
+                          </div>
+                          {group.group_duration_weeks != null && (
+                            <div className="text-slate-300 font-semibold text-xs bg-slate-800 px-2 py-0.5 rounded">
+                              {formatWeeks(group.group_duration_weeks)} wks
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex justify-between text-xs text-slate-400 mb-2">
+                           <span>{formatDate(group.group_start_time)} - {formatDate(group.group_end_time)}</span>
+                           <span>{group.group_nrb_count} NRBs</span>
+                        </div>
+
+                        {/* Success Rates Display */}
+                        <div className="pt-2 border-t border-slate-700/50">
+                          <div className="grid grid-cols-3 gap-2 text-xs text-center">
+                            <div>
+                              <div className="text-[10px] text-slate-500 uppercase">3 Mon</div>
+                              <div className="font-semibold mt-0.5">
+                                {formatSuccessRate(group.success_rate_3m)}
+                              </div>
+                            </div>
+                            <div className="border-x border-slate-700/50">
+                              <div className="text-[10px] text-slate-500 uppercase">6 Mon</div>
+                              <div className="font-semibold mt-0.5">
+                                {formatSuccessRate(group.success_rate_6m)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-500 uppercase">12 Mon</div>
+                              <div className="font-semibold mt-0.5">
+                                {formatSuccessRate(group.success_rate_12m)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 2. CONSOLIDATION ZONES LIST (Existing) */}
             {lastPattern === "nrb" && showConsolidationZones && hasAnalyzed && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 {(() => {
                   const backendZones = consolidationZones || [];
 
                   const zoneInfoList = backendZones
-                    .filter((z) => z.num_nrbs > 0) 
+                    .filter((z) => z.num_nrbs > 0)
                     .map((z) => ({
                       id: z.zone_id,
                       durationWeeks: z.duration_weeks,
@@ -138,11 +249,7 @@ function App() {
                       successRate6m: z.success_rate_6m,
                       successRate12m: z.success_rate_12m,
                     }))
-                    .sort((a, b) => {
-                      const da = a.durationWeeks ?? 0;
-                      const db = b.durationWeeks ?? 0;
-                      return db - da;
-                    });
+                    .sort((a, b) => (b.durationWeeks ?? 0) - (a.durationWeeks ?? 0));
 
                   if (zoneInfoList.length === 0) {
                     return (
@@ -152,31 +259,6 @@ function App() {
                     );
                   }
 
-                  const zones = zoneInfoList;
-                  const zoneCount = zones.length;
-
-                  const formatDate = (timestamp: number | null) => {
-                    if (!timestamp) return "-";
-                    const d = new Date(timestamp * 1000);
-                    return d.toLocaleDateString("en-IN", {
-                      month: "short",
-                      year: "numeric",
-                    });
-                  };
-
-                  const formatWeeks = (weeks: number | null) => {
-                    if (weeks == null) return null;
-                    if (Number.isInteger(weeks)) return weeks.toString();
-                    return weeks.toFixed(2);
-                  };
-
-                  const formatSuccessRate = (rate: number | null | undefined) => {
-                    if (rate == null) return "N/A";
-                    const color = rate >= 0 ? "text-green-400" : "text-red-400";
-                    const sign = rate >= 0 ? "+" : "";
-                    return <span className={color}>{sign}{rate.toFixed(1)}%</span>;
-                  };
-
                   return (
                     <>
                       <div className="mb-3">
@@ -184,13 +266,13 @@ function App() {
                           Consolidation Zones ({currentSymbol})
                         </div>
                         <div className="text-lg font-semibold text-white">
-                          {zoneCount} consolidation zone{zoneCount === 1 ? "" : "s"} found
+                          {zoneInfoList.length} Zone{zoneInfoList.length === 1 ? "" : "s"}
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        {zones.map((zone, index) => {
-                          const isSelected = selectedNrbGroupId != null && selectedNrbGroupId === zone.id;
+                        {zoneInfoList.map((zone, index) => {
+                          const isSelected = selectedNrbGroupId === zone.id;
 
                           return (
                             <button
@@ -206,29 +288,40 @@ function App() {
                               <div className="flex items-center justify-between">
                                 <div className="font-medium">Zone {index + 1}</div>
                                 {zone.durationWeeks != null && (
-                                  <div className="text-brand-accent font-semibold">{formatWeeks(zone.durationWeeks)} weeks</div>
+                                  <div className="text-brand-accent font-semibold">
+                                    {formatWeeks(zone.durationWeeks)} wks
+                                  </div>
                                 )}
                               </div>
                               <div className="mt-1 text-xs text-slate-400">
                                 {formatDate(zone.startTime)} - {formatDate(zone.endTime)}
                               </div>
+                              
                               {zone.nrbCount > 0 && (
-                                <div className="mt-1 text-xs text-slate-500">{zone.nrbCount} NRB{zone.nrbCount !== 1 ? "s" : ""}</div>
+                                <div className="mt-1 text-xs text-slate-500">
+                                  {zone.nrbCount} NRB{zone.nrbCount !== 1 ? "s" : ""}
+                                </div>
                               )}
+
                               <div className="mt-2 pt-2 border-t border-slate-700">
-                                <div className="text-xs text-slate-400 mb-1">Success Rates:</div>
                                 <div className="grid grid-cols-3 gap-2 text-xs">
                                   <div>
-                                    <div className="text-slate-500">3M</div>
-                                    <div className="font-semibold">{formatSuccessRate(zone.successRate3m)}</div>
+                                    <div className="text-slate-500 text-[10px] uppercase">3 Mon</div>
+                                    <div className="font-semibold">
+                                      {formatSuccessRate(zone.successRate3m)}
+                                    </div>
                                   </div>
                                   <div>
-                                    <div className="text-slate-500">6M</div>
-                                    <div className="font-semibold">{formatSuccessRate(zone.successRate6m)}</div>
+                                    <div className="text-slate-500 text-[10px] uppercase">6 Mon</div>
+                                    <div className="font-semibold">
+                                      {formatSuccessRate(zone.successRate6m)}
+                                    </div>
                                   </div>
                                   <div>
-                                    <div className="text-slate-500">12M</div>
-                                    <div className="font-semibold">{formatSuccessRate(zone.successRate12m)}</div>
+                                    <div className="text-slate-500 text-[10px] uppercase">12 Mon</div>
+                                    <div className="font-semibold">
+                                      {formatSuccessRate(zone.successRate12m)}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -245,7 +338,9 @@ function App() {
         </ScrollArea>
       </main>
 
-      <div className="fixed bottom-2 right-2 text-slate-400 text-sm">v0.0.3</div>
+      <div className="fixed bottom-2 right-2 text-slate-400 text-sm">
+        v0.0.3
+      </div>
     </div>
   );
 }

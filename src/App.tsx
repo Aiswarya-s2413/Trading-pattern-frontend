@@ -167,7 +167,8 @@ function App() {
                 </div>
 
                 <div className="space-y-2">
-                  {visibleNrbGroups.map((group, index) => {
+                  {/* FIX: Removed unused 'index' parameter here */}
+                  {visibleNrbGroups.map((group) => {
                     const isSelected = selectedNrbLevelId === group.group_id;
 
                     return (

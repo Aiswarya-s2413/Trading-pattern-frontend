@@ -18,7 +18,6 @@ function App() {
   const [selectedNrbGroupId, setSelectedNrbGroupId] = useState<number | null>(
     null
   );
-  // Separate state for selecting a specific NRB Group (Yellow Line)
   const [selectedNrbLevelId, setSelectedNrbLevelId] = useState<number | null>(
     null
   );
@@ -89,7 +88,6 @@ function App() {
     }
   };
 
-  // Helper functions for rendering
   const formatDate = (timestamp: number | null | undefined) => {
     if (!timestamp) return "-";
     const d = new Date(timestamp * 1000);
@@ -105,6 +103,11 @@ function App() {
     return weeks.toFixed(1);
   };
 
+  const formatLevel = (val: number | null | undefined) => {
+    if (val == null) return "-";
+    return Math.abs(val) < 5 ? val.toFixed(5) : val.toFixed(2);
+  };
+
   const formatSuccessRate = (rate: number | null | undefined) => {
     if (rate == null) return <span className="text-slate-600">-</span>;
     const color = rate >= 0 ? "text-green-400" : "text-red-400";
@@ -112,7 +115,6 @@ function App() {
     return <span className={color}>{sign}{rate.toFixed(1)}%</span>;
   };
 
-  // Filter groups to only show those with more than 1 NRB
   const visibleNrbGroups = nrbGroups ? nrbGroups.filter(g => (g.group_nrb_count || 0) > 1) : [];
 
   return (
@@ -125,7 +127,6 @@ function App() {
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 h-[85vh]">
-          {/* 🆕 UPDATED: Added showConsolidationZones prop */}
           <ChartContainer 
             selectedNrbGroupId={selectedNrbGroupId} 
             showConsolidationZones={showConsolidationZones}
@@ -156,7 +157,6 @@ function App() {
               </div>
             </div>
 
-            {/* 1. NRB GROUPS (Yellow Lines) LIST - Filtered */}
             {lastPattern === "nrb" && hasAnalyzed && visibleNrbGroups.length > 0 && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 <div className="mb-3">
@@ -172,6 +172,28 @@ function App() {
                   {visibleNrbGroups.map((group) => {
                     const isSelected = selectedNrbLevelId === group.group_id;
 
+                    // 🆕 Bucketing Logic for Near Touches
+                    // diff_pct is the deviation. 0% diff = 100% close.
+                    // >98% Close  => diff < 2%
+                    // 95-98% Close => diff >= 2% AND diff < 5%
+                    // 90-95% Close => diff >= 5% AND diff < 10%
+                    let countAbove98 = 0;
+                    let count95to98 = 0;
+                    let count90to95 = 0;
+
+                    if (group.near_touches) {
+                      group.near_touches.forEach(t => {
+                        const diff = t.avg_diff_pct;
+                        if (diff < 2.0) {
+                          countAbove98++;
+                        } else if (diff < 5.0) {
+                          count95to98++;
+                        } else if (diff < 10.0) {
+                          count90to95++;
+                        }
+                      });
+                    }
+
                     return (
                       <button
                         key={group.group_id}
@@ -185,7 +207,7 @@ function App() {
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="font-medium text-yellow-400">
-                            Level: {group.group_level?.toFixed(4)}
+                            Level: {formatLevel(group.group_level)}
                           </div>
                           {group.group_duration_weeks != null && (
                             <div className="text-slate-300 font-semibold text-xs bg-slate-800 px-2 py-0.5 rounded">
@@ -199,7 +221,19 @@ function App() {
                            <span>{group.group_nrb_count} NRBs</span>
                         </div>
 
-                        {/* Success Rates Display */}
+                        {/* 🆕 Proximity Stats Row */}
+                        <div className="flex gap-2 mb-2 text-[10px] text-slate-300">
+                           <span className="bg-green-900/50 px-1.5 py-0.5 rounded border border-green-800/50" title=">98% Close">
+                             &gt;98%: <span className="text-white font-bold">{countAbove98}</span>
+                           </span>
+                           <span className="bg-blue-900/50 px-1.5 py-0.5 rounded border border-blue-800/50" title="95% - 98% Close">
+                             95-98%: <span className="text-white font-bold">{count95to98}</span>
+                           </span>
+                           <span className="bg-orange-900/50 px-1.5 py-0.5 rounded border border-orange-800/50" title="90% - 95% Close">
+                             90-95%: <span className="text-white font-bold">{count90to95}</span>
+                           </span>
+                        </div>
+
                         <div className="pt-2 border-t border-slate-700/50">
                           <div className="grid grid-cols-3 gap-2 text-xs text-center">
                             <div>
@@ -229,7 +263,6 @@ function App() {
               </div>
             )}
 
-            {/* 2. CONSOLIDATION ZONES LIST (Existing) */}
             {lastPattern === "nrb" && showConsolidationZones && hasAnalyzed && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 {(() => {

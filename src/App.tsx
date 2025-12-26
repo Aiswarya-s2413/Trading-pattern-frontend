@@ -185,7 +185,7 @@ function App() {
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="font-medium text-yellow-400">
-                            Level: {group.group_level?.toFixed(2)}
+                            Level: {group.group_level?.toFixed(4)}
                           </div>
                           {group.group_duration_weeks != null && (
                             <div className="text-slate-300 font-semibold text-xs bg-slate-800 px-2 py-0.5 rounded">

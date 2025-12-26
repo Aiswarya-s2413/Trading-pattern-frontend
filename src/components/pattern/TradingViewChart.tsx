@@ -22,6 +22,16 @@ import type {
   NrbGroup,
 } from "../../services/patternService";
 
+// Locally define this to ensure it works even if patternService wasn't updated perfectly
+interface NearTouch {
+  start_time: number;
+  end_time: number;
+  avg_diff_pct: number;
+  min_diff_pct: number;
+  max_diff_pct: number;
+  count: number;
+}
+
 interface TradingViewChartProps {
   priceData: PriceData[];
   markers: Marker[];
@@ -57,7 +67,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   
   // Series Refs
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const zoneFillSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null); // 🆕 For Green Boxes
+  const zoneFillSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const nearTouchSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const parameterLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const parameterLineSeriesEma5Ref = useRef<ISeriesApi<"Line"> | null>(null);
   const parameterLineSeriesEma10Ref = useRef<ISeriesApi<"Line"> | null>(null);
@@ -96,9 +107,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
       chartRef.current = chart;
 
-      // 1. Zone Fill Series (Draw Background Boxes First so they appear behind)
+      // 1. Zone Fill Series (Green)
       zoneFillSeriesRef.current = chart.addSeries(CandlestickSeries, {
-        upColor: "rgba(34, 197, 94, 0.15)", // Semi-transparent Green
+        upColor: "rgba(34, 197, 94, 0.15)",
         downColor: "rgba(34, 197, 94, 0.15)",
         borderVisible: false,
         wickVisible: false,
@@ -106,7 +117,17 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lastValueVisible: false,
       });
 
-      // 2. Main Price Series
+      // 2. Near Touch Series (Orange)
+      nearTouchSeriesRef.current = chart.addSeries(CandlestickSeries, {
+        upColor: "rgba(255, 140, 0, 0.4)", 
+        downColor: "rgba(255, 140, 0, 0.4)",
+        borderVisible: false,
+        wickVisible: false,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+
+      // 3. Main Price Series
       candlestickSeriesRef.current = chart.addSeries(CandlestickSeries, {
         upColor: "#26a69a",
         downColor: "#ef5350",
@@ -115,7 +136,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         wickDownColor: "#ef5350",
       });
 
-      // 3. Indicators
+      // 4. Indicators
       parameterLineSeriesRef.current = chart.addSeries(LineSeries, {
         color: "#2962FF",
         lineWidth: 2,
@@ -157,7 +178,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         parameterLineMarkersRef.current = createSeriesMarkers(parameterLineSeriesRef.current, []);
       }
 
-      // Robust Info Box Interaction
+      // -----------------------------------------------------------------------
+      // 🆕 UPDATED HOVER LOGIC WITH DEBUGGING
+      // -----------------------------------------------------------------------
       chart.subscribeCrosshairMove((param: MouseEventParams) => {
         if (
           !param.point ||
@@ -173,7 +196,10 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
         const mouseX = param.point.x;
         const mouseY = param.point.y;
-        const mouseTime = chartRef.current.timeScale().coordinateToTime(mouseX);
+        
+        // Ensure accurate time conversion
+        const timeScale = chartRef.current.timeScale();
+        const mouseTime = timeScale.coordinateToTime(mouseX);
 
         if (!mouseTime) {
           if (infoBoxRef.current) infoBoxRef.current.style.display = "none";
@@ -182,6 +208,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
         const mouseTs = Number(mouseTime);
         let foundGroup: NrbGroup | null = null;
+        let foundTouch: NearTouch | null = null;
 
         for (const group of nrbGroups) {
           if (!group.group_start_time || !group.group_end_time || group.group_level == null) continue;
@@ -189,12 +216,35 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const start = Number(group.group_start_time);
           const end = Number(group.group_end_time);
 
+          // Check if mouse time is within the group's overall duration
           if (mouseTs >= start && mouseTs <= end) {
+            
             const priceCoordinate = candlestickSeriesRef.current.priceToCoordinate(group.group_level);
+            
             if (priceCoordinate !== null) {
               const distance = Math.abs(mouseY - priceCoordinate);
+              
+              // Hit Test: Within 30px of the yellow line
               if (distance < 30) {
                 foundGroup = group;
+
+                // 🆕 Check for Near Touch zones
+                // Using a small buffer (e.g., 1 hour = 3600s) to fix edge case exact matches
+                const TIME_BUFFER = 3600; 
+                
+                if (group.near_touches && group.near_touches.length > 0) {
+                  foundTouch = (group.near_touches as NearTouch[]).find(
+                    (t) => mouseTs >= (t.start_time - TIME_BUFFER) && mouseTs <= (t.end_time + TIME_BUFFER)
+                  ) || null;
+                  
+                  // Debug logging to help identify why it might fail
+                  if (!foundTouch) {
+                     // console.log("Hovering Group but Touch not found. Mouse:", mouseTs);
+                  } else {
+                     // console.log("Touch Found!", foundTouch.avg_diff_pct);
+                  }
+                }
+                
                 break;
               }
             }
@@ -208,16 +258,33 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             return `<span style="color: ${color}; font-weight: 700;">${rate > 0 ? '+' : ''}${rate.toFixed(1)}%</span>`;
           };
 
+          const levelVal = Number(foundGroup.group_level);
+          const formattedLevel = Math.abs(levelVal) < 5 ? levelVal.toFixed(5) : levelVal.toFixed(2);
+
           const durationText = foundGroup.group_duration_weeks
             ? `${foundGroup.group_duration_weeks} weeks`
             : "N/A";
+
+          // 🆕 Generate HTML for Near Touch
+          let touchHtml = "";
+          if (foundTouch) {
+            const avgDiff = foundTouch.avg_diff_pct.toFixed(2);
+            touchHtml = `
+              <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #334155; font-size: 11px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="color: #FFA500; font-weight: 700; text-transform: uppercase; font-size: 10px;">Near Touch Proximity</span>
+                  <span style="color: #FFA500; font-weight: 700; font-size: 12px;">${avgDiff}%</span>
+                </div>
+              </div>
+            `;
+          }
 
           infoBoxRef.current.style.display = "block";
           infoBoxRef.current.innerHTML = `
                 <div style="margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 6px;">
                     <div style="font-weight: 700; color: #FFEA00; font-size: 13px;">NRB Pattern Group</div>
                     <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #94a3b8;">
-                        <span>Level: <span style="color: #e2e8f0;">${Number(foundGroup.group_level).toFixed(2)}</span></span>
+                        <span>Level: <span style="color: #e2e8f0;">${formattedLevel}</span></span>
                         <span>Dur: <span style="color: #e2e8f0;">${durationText}</span></span>
                     </div>
                 </div>
@@ -236,6 +303,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                         <div style="font-size: 12px;">${formatRate(foundGroup.success_rate_12m)}</div>
                     </div>
                 </div>
+                
+                ${touchHtml} 
             `;
         } else {
           infoBoxRef.current.style.display = "none";
@@ -246,12 +315,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     const chart = chartRef.current;
     const candlestickSeries = candlestickSeriesRef.current;
     const zoneFillSeries = zoneFillSeriesRef.current;
+    const nearTouchSeries = nearTouchSeriesRef.current;
     const parameterLineSeries = parameterLineSeriesRef.current;
     const parameterLineSeriesEma5 = parameterLineSeriesEma5Ref.current;
     const parameterLineSeriesEma10 = parameterLineSeriesEma10Ref.current;
     const week52HighSeries = week52HighSeriesRef.current;
 
-    if (!chart || !candlestickSeries || !zoneFillSeries || !parameterLineSeries || !parameterLineSeriesEma5 || !parameterLineSeriesEma10 || !week52HighSeries) return;
+    if (!chart || !candlestickSeries || !zoneFillSeries || !nearTouchSeries || !parameterLineSeries || !parameterLineSeriesEma5 || !parameterLineSeriesEma10 || !week52HighSeries) return;
 
     const showParameterLine = parameterSeriesName && parameterSeriesData && parameterSeriesData.length > 0;
     const isRSC30 = parameterSeriesName === "rsc30";
@@ -455,14 +525,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         });
 
         // 2. Draw "Box Fill" using Candlestick Series
-        // We find all timestamps inside the zone and draw a full-height bar
         const zoneFillData: any[] = [];
         const timeSet = new Set<number>();
 
-        // Use dataForCalculations as the reference for available timestamps
         dataForCalculations.forEach((point) => {
             const t = Number(point.time);
-            // Check if this time is inside ANY consolidation zone
             for (const zone of consolidationZones) {
                 if (!zone.start_time || !zone.end_time || zone.min_value == null || zone.max_value == null) continue;
                 if (t >= Number(zone.start_time) && t <= Number(zone.end_time)) {
@@ -476,12 +543,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                         });
                         timeSet.add(t);
                     }
-                    break; // Point belongs to one zone, stop checking others
+                    break;
                 }
             }
         });
 
-        // Sort just in case
         zoneFillData.sort((a, b) => Number(a.time) - Number(b.time));
         zoneFillSeries.setData(zoneFillData);
 
@@ -489,10 +555,15 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         zoneFillSeries.setData([]);
       }
 
-      // ... (NRB Group Lines Logic Kept Same)
+      // 3. Draw "Near Touch" Zones (Orange Highlight Boxes)
+      const nearTouchFillData: any[] = [];
+      const nearTouchTimeSet = new Set<number>();
+
       if (nrbGroups && nrbGroups.length > 0) {
         const groupLineColor = "#FFEA00"; 
+        
         nrbGroups.forEach((group) => {
+          // A. Draw the Group Line
           if (!group.group_start_time || !group.group_end_time || group.group_level == null) return;
           const startTime = Number(group.group_start_time);
           const endTime = Number(group.group_end_time);
@@ -512,8 +583,39 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             nrbRangeSeriesRefs.current.set(lineKey, lineSeries);
           }
           lineSeries.setData([{ time: startTime as Time, value: level }, { time: endTime as Time, value: level }]);
+
+          // B. Process Near Touches
+          if (group.near_touches && group.near_touches.length > 0) {
+            const VISUAL_TOLERANCE = 0.015; // 1.5%
+            const boxTop = level * (1 + VISUAL_TOLERANCE);
+            const boxBottom = level * (1 - VISUAL_TOLERANCE);
+
+            (group.near_touches as NearTouch[]).forEach((touch) => {
+                const touchStart = Number(touch.start_time);
+                const touchEnd = Number(touch.end_time);
+                
+                dataForCalculations.forEach((point) => {
+                    const t = Number(point.time);
+                    if (t >= touchStart && t <= touchEnd) {
+                        if (!nearTouchTimeSet.has(t)) {
+                            nearTouchFillData.push({
+                                time: t as Time,
+                                open: boxBottom,
+                                high: boxTop,
+                                low: boxBottom,
+                                close: boxTop,
+                            });
+                            nearTouchTimeSet.add(t);
+                        }
+                    }
+                });
+            });
+          }
         });
       }
+      
+      nearTouchFillData.sort((a, b) => Number(a.time) - Number(b.time));
+      nearTouchSeries.setData(nearTouchFillData);
 
       // ... (Rest of Marker & 52-week Logic Kept Same)
       const zoneColors = ["#22c55e", "#3b82f6", "#f97316", "#a855f7", "#eab308", "#ef4444", "#14b8a6", "#6366f1"];
@@ -576,7 +678,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       chart.timeScale().fitContent();
     } else {
       candlestickSeries.setData([]);
-      zoneFillSeries.setData([]); // Clear zone fill
+      zoneFillSeries.setData([]); 
+      nearTouchSeries.setData([]); 
       parameterLineSeries.setData([]);
       parameterLineSeriesEma5.setData([]);
       parameterLineSeriesEma10.setData([]);

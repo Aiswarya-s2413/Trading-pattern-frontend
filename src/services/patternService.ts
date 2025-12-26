@@ -64,6 +64,16 @@ export interface ConsolidationZone {
   success_rate_12m: number | null;
 }
 
+// 🆕 NEW INTERFACE for "Near Touch" zones
+export interface NearTouch {
+  start_time: number;
+  end_time: number;
+  avg_diff_pct: number;
+  min_diff_pct: number;
+  max_diff_pct: number;
+  count: number;
+}
+
 // 🆕 UPDATED INTERFACE
 export interface NrbGroup {
   group_id: number;
@@ -72,11 +82,13 @@ export interface NrbGroup {
   group_end_time: number;
   group_nrb_count: number;
   nrb_ids: number[];
-  // New fields
+  
   group_duration_weeks?: number | null;
   success_rate_3m?: number | null;
   success_rate_6m?: number | null;
   success_rate_12m?: number | null;
+  
+  near_touches?: NearTouch[] | null; // 🆕 Added field
 }
 
 export interface PatternScanResponse {
@@ -167,11 +179,21 @@ export const fetchPatternScanData = async (
       group_end_time: g.group_end_time,
       group_nrb_count: g.group_nrb_count,
       nrb_ids: g.nrb_ids || [],
-      // Map new fields from backend
+      
       group_duration_weeks: g.group_duration_weeks,
       success_rate_3m: g.success_rate_3m,
       success_rate_6m: g.success_rate_6m,
       success_rate_12m: g.success_rate_12m,
+
+      // Map near touches
+      near_touches: (g.near_touches || []).map((t: any) => ({
+        start_time: t.start_time,
+        end_time: t.end_time,
+        avg_diff_pct: t.avg_diff_pct,
+        min_diff_pct: t.min_diff_pct,
+        max_diff_pct: t.max_diff_pct,
+        count: t.count,
+      })),
     }));
 
     const normalizedData: PatternScanResponse = {

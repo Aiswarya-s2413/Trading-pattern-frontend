@@ -2,15 +2,16 @@ import { useEffect, type FC } from 'react';
 import { LightweightChart } from './LightweightChart';
 import { useMarketStore } from '../store/marketStore';
 import { SymbolSearch } from './SymbolSearch';
-import TradingViewChart from './pattern/TradingViewChart'; // Adjusted import path based on context
+import TradingViewChart from './pattern/TradingViewChart';
 import { Trash } from 'lucide-react';
 import clsx from 'clsx';
 
 interface ChartContainerProps {
     selectedNrbGroupId: number | null;
+    showConsolidationZones?: boolean; // 🆕 Added Prop
 }
 
-const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
+const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId, showConsolidationZones = false }) => {
     const {
         currentSymbol,
         currentInterval,
@@ -27,7 +28,7 @@ const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
         patternMode,
         resetPatternMode,
         consolidationZones,                     
-        nrbGroups, // 🆕 Destructure
+        nrbGroups,
     } = useMarketStore();
 
     const data = dataCache[`${currentSymbol}-${currentInterval}`] || [];
@@ -108,7 +109,8 @@ const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId }) => {
                         parameterSeriesDataEma10={seriesDataEma10 || []}  
                         selectedNrbGroupId={selectedNrbGroupId}
                         consolidationZones={consolidationZones}
-                        nrbGroups={nrbGroups} // 🆕 Pass prop
+                        nrbGroups={nrbGroups}
+                        showConsolidationZones={showConsolidationZones} // 🆕 Pass Prop
                     /> 
                 </div>
             )}

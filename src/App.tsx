@@ -125,9 +125,11 @@ function App() {
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 h-[85vh]">
-          {/* We pass selectedNrbLevelId if you want to highlight the line, 
-              though currently ChartContainer mainly handles consolidation zone selection */}
-          <ChartContainer selectedNrbGroupId={selectedNrbGroupId} />
+          {/* 🆕 UPDATED: Added showConsolidationZones prop */}
+          <ChartContainer 
+            selectedNrbGroupId={selectedNrbGroupId} 
+            showConsolidationZones={showConsolidationZones}
+          />
         </div>
 
         <ScrollArea className="h-full lg:h-[85vh]">
@@ -154,7 +156,7 @@ function App() {
               </div>
             </div>
 
-            {/* 🆕 1. NRB GROUPS (Yellow Lines) LIST - Filtered */}
+            {/* 1. NRB GROUPS (Yellow Lines) LIST - Filtered */}
             {lastPattern === "nrb" && hasAnalyzed && visibleNrbGroups.length > 0 && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 <div className="mb-3">
@@ -167,7 +169,6 @@ function App() {
                 </div>
 
                 <div className="space-y-2">
-                  {/* FIX: Removed unused 'index' parameter here */}
                   {visibleNrbGroups.map((group) => {
                     const isSelected = selectedNrbLevelId === group.group_id;
 

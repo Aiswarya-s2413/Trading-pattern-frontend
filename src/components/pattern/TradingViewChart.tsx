@@ -35,6 +35,7 @@ interface TradingViewChartProps {
   consolidationZones?: ConsolidationZone[] | null;
   nrbGroups?: NrbGroup[] | null;
   showConsolidationZones?: boolean;
+  showSingleLevelNrbs?: boolean;
 }
 
 const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -50,6 +51,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   consolidationZones,
   nrbGroups,
   showConsolidationZones = false,
+  showSingleLevelNrbs = false, 
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const infoBoxRef = useRef<HTMLDivElement | null>(null);
@@ -58,7 +60,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   // Series Refs
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const zoneFillSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  // Removed nearTouchSeriesRef
   const parameterLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const parameterLineSeriesEma5Ref = useRef<ISeriesApi<"Line"> | null>(null);
   const parameterLineSeriesEma10Ref = useRef<ISeriesApi<"Line"> | null>(null);
@@ -97,7 +98,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
       chartRef.current = chart;
 
-      // 1. Zone Fill Series (Green)
       zoneFillSeriesRef.current = chart.addSeries(CandlestickSeries, {
         upColor: "rgba(34, 197, 94, 0.15)",
         downColor: "rgba(34, 197, 94, 0.15)",
@@ -107,7 +107,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lastValueVisible: false,
       });
 
-      // 2. Main Price Series
       candlestickSeriesRef.current = chart.addSeries(CandlestickSeries, {
         upColor: "#26a69a",
         downColor: "#ef5350",
@@ -116,7 +115,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         wickDownColor: "#ef5350",
       });
 
-      // 3. Indicators
       parameterLineSeriesRef.current = chart.addSeries(LineSeries, {
         color: "#2962FF",
         lineWidth: 2,
@@ -158,18 +156,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         parameterLineMarkersRef.current = createSeriesMarkers(parameterLineSeriesRef.current, []);
       }
 
-      // -----------------------------------------------------------------------
-      // HOVER LOGIC (Simplified - Removed "Near Touch" tooltip parts)
-      // -----------------------------------------------------------------------
+      // Hover Logic
       chart.subscribeCrosshairMove((param: MouseEventParams) => {
-        if (
-          !param.point ||
-          !nrbGroups ||
-          nrbGroups.length === 0 ||
-          !infoBoxRef.current ||
-          !candlestickSeriesRef.current ||
-          !chartRef.current
-        ) {
+        if (!param.point || !nrbGroups || nrbGroups.length === 0 || !infoBoxRef.current || !candlestickSeriesRef.current || !chartRef.current) {
           if (infoBoxRef.current) infoBoxRef.current.style.display = "none";
           return;
         }
@@ -187,6 +176,21 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         let foundGroup: NrbGroup | null = null;
 
         for (const group of nrbGroups) {
+          const count = group.group_nrb_count || 0;
+          const duration = group.group_duration_weeks || 0;
+          const isExtendedLevel = duration > 24;
+
+          // Determine visibility based on toggle and type
+          let isVisible = false;
+          
+          if (showSingleLevelNrbs && isExtendedLevel) {
+             isVisible = true; // Show long levels (Cyan)
+          } else if (count > 1) {
+             isVisible = true; // Show standard clusters (Yellow)
+          }
+
+          if (!isVisible) continue;
+
           if (!group.group_start_time || !group.group_end_time || group.group_level == null) continue;
 
           const start = Number(group.group_start_time);
@@ -213,15 +217,28 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
           const levelVal = Number(foundGroup.group_level);
           const formattedLevel = Math.abs(levelVal) < 5 ? levelVal.toFixed(5) : levelVal.toFixed(2);
+          const durationText = foundGroup.group_duration_weeks ? `${foundGroup.group_duration_weeks} weeks` : "N/A";
+          
+          const isExtendedLevel = (foundGroup.group_duration_weeks || 0) > 24;
+          const isSingle = (foundGroup.group_nrb_count || 0) === 1;
+          
+          // Determine color for Title
+          let titleColor = "#FFEA00"; // Default Yellow
+          let titleText = "NRB Pattern Group";
 
-          const durationText = foundGroup.group_duration_weeks
-            ? `${foundGroup.group_duration_weeks} weeks`
-            : "N/A";
+          if (showSingleLevelNrbs && isExtendedLevel) {
+             titleColor = "#00E5FF";
+             titleText = "Historical Level";
+          } else if (isSingle) {
+             // Fallback for single (shouldn't happen with current logic but safe)
+             titleColor = "#00E5FF";
+             titleText = "Single Level NRB";
+          }
 
           infoBoxRef.current.style.display = "block";
           infoBoxRef.current.innerHTML = `
                 <div style="margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 6px;">
-                    <div style="font-weight: 700; color: #FFEA00; font-size: 13px;">NRB Pattern Group</div>
+                    <div style="font-weight: 700; color: ${titleColor}; font-size: 13px;">${titleText}</div>
                     <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #94a3b8;">
                         <span>Level: <span style="color: #e2e8f0;">${formattedLevel}</span></span>
                         <span>Dur: <span style="color: #e2e8f0;">${durationText}</span></span>
@@ -229,18 +246,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
-                    <div>
-                        <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">3 MONTH</div>
-                        <div style="font-size: 12px;">${formatRate(foundGroup.success_rate_3m)}</div>
-                    </div>
-                    <div style="border-left: 1px solid #334155; border-right: 1px solid #334155;">
-                        <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">6 MONTH</div>
-                        <div style="font-size: 12px;">${formatRate(foundGroup.success_rate_6m)}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">12 MONTH</div>
-                        <div style="font-size: 12px;">${formatRate(foundGroup.success_rate_12m)}</div>
-                    </div>
+                    <div><div style="font-size: 10px; color: #64748b;">3 MONTH</div><div style="font-size: 12px;">${formatRate(foundGroup.success_rate_3m)}</div></div>
+                    <div style="border-left: 1px solid #334155; border-right: 1px solid #334155;"><div style="font-size: 10px; color: #64748b;">6 MONTH</div><div style="font-size: 12px;">${formatRate(foundGroup.success_rate_6m)}</div></div>
+                    <div><div style="font-size: 10px; color: #64748b;">12 MONTH</div><div style="font-size: 12px;">${formatRate(foundGroup.success_rate_12m)}</div></div>
                 </div>
             `;
         } else {
@@ -262,17 +270,14 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     const showParameterLine = parameterSeriesName && parameterSeriesData && parameterSeriesData.length > 0;
     const isRSC30 = parameterSeriesName === "rsc30";
 
-    // Set Data for Main Series
+    // Set Data for Main Series (Unchanged)
     if (priceData.length > 0 || (showParameterLine && parameterSeriesData)) {
       if (showParameterLine) {
-        // ... (Parameter Line Logic kept same)
         candlestickSeries.applyOptions({ visible: false, priceScaleId: "" });
-        
         if (isRSC30) {
            chart.priceScale("right").applyOptions({ autoScale: true } as any);
            parameterLineSeries.applyOptions({ visible: true, color: "rgba(128, 128, 128, 0.8)", lineWidth: 1, priceScaleId: "right", priceFormat: { type: "price", precision: 4, minMove: 0.0001 } } as any);
            if (parameterSeriesData) parameterLineSeries.setData(parameterSeriesData.map(item => ({ time: item.time as Time, value: item.value })));
-           // EMAs...
            if (parameterSeriesDataEma5 && parameterSeriesDataEma5.length > 0) {
              parameterLineSeriesEma5.applyOptions({ visible: true, priceScaleId: "right", priceFormat: { type: "price", precision: 4, minMove: 0.0001 } } as any);
              parameterLineSeriesEma5.setData(parameterSeriesDataEma5.map(item => ({ time: item.time as Time, value: item.value })));
@@ -286,7 +291,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
              parameterLineSeriesEma10.setData([]);
            }
         } else {
-          // Standard Parameter
           chart.priceScale("right").applyOptions({ autoScale: true } as any);
           parameterLineSeriesEma5.setData([]);
           parameterLineSeriesEma10.setData([]);
@@ -296,7 +300,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           if (parameterSeriesData) parameterLineSeries.setData(parameterSeriesData.map(item => ({ time: item.time as Time, value: item.value })));
         }
       } else {
-        // Standard Price
         chart.priceScale("right").applyOptions({ autoScale: true } as any);
         candlestickSeries.applyOptions({ visible: true, priceScaleId: "right" });
         parameterLineSeries.applyOptions({ visible: false });
@@ -309,7 +312,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         ? parameterSeriesData.map((item) => ({ time: item.time as Time, open: item.value, high: item.value, low: item.value, close: item.value }))
         : priceData.map((item) => ({ time: item.time as Time, open: item.open, high: item.high, low: item.low, close: item.close }));
 
-      // ... (Bowl Logic Kept Same)
+      // Bowl Logic (Unchanged)
       const isBowlPattern = chartTitle.toLowerCase().includes("bowl");
       const bowlMarkers = markers.filter((m) => {
         const mm: any = m;
@@ -391,15 +394,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         bowlSeries.setData(lineData);
       });
 
-      // ----------------------------------------------------
-      // START NRB AND CONSOLIDATION LINES
-      // ----------------------------------------------------
-
+      // NRB Range Lines (Unchanged)
       nrbRangeSeriesRefs.current.forEach((series) => {
         series.setData([]);
       });
 
-      // ... (Range Lines Logic Kept Same)
       const nrbMarkersWithRange = markers.filter((m: any) => {
         const isBowlMarker = (isBowlPattern && m.pattern_id != null) || m.text?.toUpperCase().includes("BOWL");
         const hasRange = m.range_low != null && m.range_high != null && m.range_start_time != null && m.range_end_time != null;
@@ -408,7 +407,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
       nrbMarkersWithRange.forEach((marker: any) => {
         const id = marker.nrb_id != null ? String(marker.nrb_id) : String(marker.time);
-        
         if (Number(marker.range_start_time) >= Number(marker.range_end_time)) return;
 
         const highKey = `${id}-high`;
@@ -428,11 +426,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lowSeries.setData([{ time: marker.range_start_time as Time, value: marker.range_low as number }, { time: marker.range_end_time as Time, value: marker.range_low as number }]);
       });
 
-      // 🆕 UPDATED: Robust Box Drawing using "Filled" Candlesticks
+      // Consolidation Boxes (Unchanged)
       if (showConsolidationZones && consolidationZones && consolidationZones.length > 0) {
-        
-        // 1. Draw Top and Bottom Lines (Outline)
-        const lineColor = "#22c55e"; // Green color
+        const lineColor = "#22c55e"; 
         consolidationZones.forEach((zone) => {
           if (!zone.start_time || !zone.end_time || zone.min_value == null || zone.max_value == null) return;
           const startTime = Number(zone.start_time);
@@ -441,7 +437,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const minValue = Number(zone.min_value);
           if (startTime >= endTime) return;
 
-          // Top Line
           const topKey = `zone-${zone.zone_id}-top`;
           let topSeries = nrbRangeSeriesRefs.current.get(topKey);
           if (!topSeries) {
@@ -450,7 +445,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           }
           topSeries.setData([{ time: startTime as Time, value: maxValue }, { time: endTime as Time, value: maxValue }]);
 
-          // Bottom Line
           const bottomKey = `zone-${zone.zone_id}-bottom`;
           let bottomSeries = nrbRangeSeriesRefs.current.get(bottomKey);
           if (!bottomSeries) {
@@ -460,7 +454,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           bottomSeries.setData([{ time: startTime as Time, value: minValue }, { time: endTime as Time, value: minValue }]);
         });
 
-        // 2. Draw "Box Fill" using Candlestick Series
         const zoneFillData: any[] = [];
         const timeSet = new Set<number>();
 
@@ -486,18 +479,42 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
         zoneFillData.sort((a, b) => Number(a.time) - Number(b.time));
         zoneFillSeries.setData(zoneFillData);
-
       } else {
         zoneFillSeries.setData([]);
       }
 
-      // REMOVED ORANGE HIGHLIGHT LOGIC HERE (Near Touch Series)
-
+      // ----------------------------------------------------
+      // 🆕 UPDATED: NRB Group Lines Logic (Cyan/Yellow)
+      // ----------------------------------------------------
       if (nrbGroups && nrbGroups.length > 0) {
-        const groupLineColor = "#FFEA00"; 
         
         nrbGroups.forEach((group) => {
-          // A. Draw the Group Line
+          const count = group.group_nrb_count || 0;
+          const duration = group.group_duration_weeks || 0;
+          
+          // Logic:
+          // 1. "Extended Level" = Duration > 24 weeks.
+          // 2. "Cluster" = Count > 1.
+          
+          const isExtendedLevel = duration > 24;
+          const isCluster = count > 1;
+
+          let lineColor: string | null = null;
+          let style = LineStyle.Dashed;
+
+          if (showSingleLevelNrbs && isExtendedLevel) {
+             // If toggle is ON and it's a long level, prioritize Cyan/Solid
+             lineColor = "#00E5FF"; // Cyan
+             style = LineStyle.Solid;
+          } else if (isCluster) {
+             // If not rendered as extended level, but is a cluster, render Yellow/Dashed
+             lineColor = "#FFEA00"; // Yellow
+             style = LineStyle.Dashed;
+          }
+
+          // If neither (e.g. single NRB < 24 weeks, OR extended level but toggle OFF), skip
+          if (!lineColor) return;
+
           if (!group.group_start_time || !group.group_end_time || group.group_level == null) return;
           const startTime = Number(group.group_start_time);
           const endTime = Number(group.group_end_time);
@@ -506,21 +523,28 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
           const lineKey = `nrb-group-${group.group_id}-line`;
           let lineSeries = nrbRangeSeriesRefs.current.get(lineKey);
+          
           if (!lineSeries) {
             lineSeries = chart.addSeries(LineSeries, {
-              color: groupLineColor,
+              color: lineColor,
               lineWidth: 2,
-              lineStyle: LineStyle.Dashed,
+              lineStyle: style,
               crosshairMarkerVisible: false,
               priceLineVisible: false,
             });
             nrbRangeSeriesRefs.current.set(lineKey, lineSeries);
+          } else {
+            lineSeries.applyOptions({
+               color: lineColor,
+               lineStyle: style,
+            });
           }
+          
           lineSeries.setData([{ time: startTime as Time, value: level }, { time: endTime as Time, value: level }]);
         });
       }
       
-      // ... (Rest of Marker & 52-week Logic Kept Same)
+      // Markers Logic (Unchanged)
       const zoneColors = ["#22c55e", "#3b82f6", "#f97316", "#a855f7", "#eab308", "#ef4444", "#14b8a6", "#6366f1"];
       const zoneColorMap = new Map<number, string>();
       markers.forEach((m: any) => {
@@ -639,6 +663,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     consolidationZones,
     nrbGroups,
     showConsolidationZones,
+    showSingleLevelNrbs, 
   ]);
 
   return (

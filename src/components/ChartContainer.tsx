@@ -8,10 +8,11 @@ import clsx from 'clsx';
 
 interface ChartContainerProps {
     selectedNrbGroupId: number | null;
-    showConsolidationZones?: boolean; // 🆕 Added Prop
+    showConsolidationZones?: boolean;
+    showSingleLevelNrbs?: boolean; // 🆕 Added Prop
 }
 
-const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId, showConsolidationZones = false }) => {
+const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId, showConsolidationZones = false,showSingleLevelNrbs = false }) => {
     const {
         currentSymbol,
         currentInterval,
@@ -110,7 +111,8 @@ const ChartContainer: FC<ChartContainerProps> = ({ selectedNrbGroupId, showConso
                         selectedNrbGroupId={selectedNrbGroupId}
                         consolidationZones={consolidationZones}
                         nrbGroups={nrbGroups}
-                        showConsolidationZones={showConsolidationZones} // 🆕 Pass Prop
+                        showConsolidationZones={showConsolidationZones}
+                        showSingleLevelNrbs={showSingleLevelNrbs} // 🆕 Pass Prop
                     /> 
                 </div>
             )}

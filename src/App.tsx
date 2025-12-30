@@ -120,7 +120,7 @@ function App() {
   // Existing Clusters (> 1 NRB)
   const nrbClusters = nrbGroups ? nrbGroups.filter(g => (g.group_nrb_count || 0) > 1) : [];
   
-  // 🆕 UPDATED: Captures ANY level > 24 weeks (regardless of NRB count)
+  // Captures ANY level > 24 weeks (regardless of NRB count)
   const nrbSingles = nrbGroups ? nrbGroups.filter(g => (g.group_duration_weeks || 0) > 24) : [];
 
   const renderGroupCard = (group: any, isSelected: boolean) => {
@@ -130,10 +130,17 @@ function App() {
 
     if (group.near_touches) {
       group.near_touches.forEach((t: any) => {
-        const diff = t.avg_diff_pct;
-        if (diff < 2.0) countAbove98 += t.count;
-        else if (diff < 5.0) count95to98 += t.count;
-        else if (diff < 10.0) count90to95 += t.count;
+        // 🆕 CHANGE 1: Use min_diff_pct (Closest point of the attempt)
+        const diff = t.min_diff_pct; 
+        
+        // 🆕 CHANGE 2: Count Attempts (Increment by 1, NOT t.count)
+        if (diff < 2.0) {
+          countAbove98 += 1;
+        } else if (diff < 5.0) {
+          count95to98 += 1;
+        } else if (diff < 10.0) {
+          count90to95 += 1;
+        }
       });
     }
 
@@ -167,15 +174,16 @@ function App() {
             <span>{group.group_nrb_count} NRB{group.group_nrb_count > 1 ? 's' : ''}</span>
         </div>
 
+        {/* 🆕 CHANGE 3: Removed 'd' suffix from counts */}
         <div className="flex gap-2 mb-2 text-[10px] text-slate-300 flex-wrap">
-            <span className="bg-green-900/50 px-1.5 py-0.5 rounded border border-green-800/50" title=">98% Close">
-              &gt;98%: <span className="text-white font-bold">{countAbove98}d</span>
+            <span className="bg-green-900/50 px-1.5 py-0.5 rounded border border-green-800/50" title="Attempts >98% Close">
+              &gt;98%: <span className="text-white font-bold">{countAbove98}</span>
             </span>
-            <span className="bg-blue-900/50 px-1.5 py-0.5 rounded border border-blue-800/50" title="95% - 98% Close">
-              95-98%: <span className="text-white font-bold">{count95to98}d</span>
+            <span className="bg-blue-900/50 px-1.5 py-0.5 rounded border border-blue-800/50" title="Attempts 95% - 98% Close">
+              95-98%: <span className="text-white font-bold">{count95to98}</span>
             </span>
-            <span className="bg-orange-900/50 px-1.5 py-0.5 rounded border border-orange-800/50" title="90% - 95% Close">
-              90-95%: <span className="text-white font-bold">{count90to95}d</span>
+            <span className="bg-orange-900/50 px-1.5 py-0.5 rounded border border-orange-800/50" title="Attempts 90% - 95% Close">
+              90-95%: <span className="text-white font-bold">{count90to95}</span>
             </span>
         </div>
 

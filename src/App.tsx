@@ -23,7 +23,11 @@ function App() {
   );
   
   const [showConsolidationZones, setShowConsolidationZones] = useState(false);
-  const [showSingleLevelNrbs, setShowSingleLevelNrbs] = useState(false);
+  
+  // 🆕 CHANGED: Blue line (Historical) default ON
+  const [showSingleLevelNrbs, setShowSingleLevelNrbs] = useState(true);
+  // 🆕 ADDED: Yellow line (Clusters) default OFF
+  const [showNrbClusters, setShowNrbClusters] = useState(false);
 
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
@@ -130,10 +134,10 @@ function App() {
 
     if (group.near_touches) {
       group.near_touches.forEach((t: any) => {
-        // 🆕 CHANGE 1: Use min_diff_pct (Closest point of the attempt)
+        // Use min_diff_pct (Closest point of the attempt)
         const diff = t.min_diff_pct; 
         
-        // 🆕 CHANGE 2: Count Attempts (Increment by 1, NOT t.count)
+        // Count Attempts (Increment by 1, NOT t.count)
         if (diff < 2.0) {
           countAbove98 += 1;
         } else if (diff < 5.0) {
@@ -174,7 +178,6 @@ function App() {
             <span>{group.group_nrb_count} NRB{group.group_nrb_count > 1 ? 's' : ''}</span>
         </div>
 
-        {/* 🆕 CHANGE 3: Removed 'd' suffix from counts */}
         <div className="flex gap-2 mb-2 text-[10px] text-slate-300 flex-wrap">
             <span className="bg-green-900/50 px-1.5 py-0.5 rounded border border-green-800/50" title="Attempts >98% Close">
               &gt;98%: <span className="text-white font-bold">{countAbove98}</span>
@@ -223,10 +226,12 @@ function App() {
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 h-[85vh]">
+          {/* 🆕 PASSED showNrbClusters prop */}
           <ChartContainer 
             selectedNrbGroupId={selectedNrbGroupId} 
             showConsolidationZones={showConsolidationZones}
             showSingleLevelNrbs={showSingleLevelNrbs}
+            showNrbClusters={showNrbClusters} 
           />
         </div>
 
@@ -239,16 +244,28 @@ function App() {
               onToggleConsolidationZones={setShowConsolidationZones}
             />
 
-            {/* Extended Level Toggle */}
+            {/* 🆕 UPDATED: Two Checkboxes for Blue/Yellow Lines */}
             {lastPattern === "nrb" && hasAnalyzed && (
-              <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
-                <span className="text-sm text-slate-300 font-medium">Show Historical Levels</span>
-                <input 
-                  type="checkbox" 
-                  checked={showSingleLevelNrbs} 
-                  onChange={(e) => setShowSingleLevelNrbs(e.target.checked)}
-                  className="w-4 h-4 text-cyan-500 bg-slate-800 border-slate-600 rounded focus:ring-cyan-500 focus:ring-1"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
+                  <span className="text-sm text-slate-300 font-medium">Show NRB Zones</span>
+                  <input 
+                    type="checkbox" 
+                    checked={showSingleLevelNrbs} 
+                    onChange={(e) => setShowSingleLevelNrbs(e.target.checked)}
+                    className="w-4 h-4 text-cyan-500 bg-slate-800 border-slate-600 rounded focus:ring-cyan-500 focus:ring-1"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
+                  <span className="text-sm text-slate-300 font-medium">Show NRB Levels</span>
+                  <input 
+                    type="checkbox" 
+                    checked={showNrbClusters} 
+                    onChange={(e) => setShowNrbClusters(e.target.checked)}
+                    className="w-4 h-4 text-yellow-500 bg-slate-800 border-slate-600 rounded focus:ring-yellow-500 focus:ring-1"
+                  />
+                </div>
               </div>
             )}
 
@@ -267,8 +284,8 @@ function App() {
               </div>
             </div>
 
-            {/* Clusters (>1 NRB) */}
-            {lastPattern === "nrb" && hasAnalyzed && nrbClusters.length > 0 && (
+            {/* Clusters (>1 NRB) - 🆕 Only show if Toggle ON */}
+            {lastPattern === "nrb" && hasAnalyzed && showNrbClusters && nrbClusters.length > 0 && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 <div className="mb-3">
                   <div className="text-slate-400 text-sm">
@@ -284,7 +301,7 @@ function App() {
               </div>
             )}
 
-            {/* 🆕 Extended Levels (>24 weeks) - Only visible if toggle is ON */}
+            {/* Extended Levels (>24 weeks) - Only visible if toggle is ON */}
             {lastPattern === "nrb" && hasAnalyzed && showSingleLevelNrbs && nrbSingles.length > 0 && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 <div className="mb-3">

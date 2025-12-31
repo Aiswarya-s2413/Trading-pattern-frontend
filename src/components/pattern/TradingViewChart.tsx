@@ -35,7 +35,8 @@ interface TradingViewChartProps {
   consolidationZones?: ConsolidationZone[] | null;
   nrbGroups?: NrbGroup[] | null;
   showConsolidationZones?: boolean;
-  showSingleLevelNrbs?: boolean;
+  showSingleLevelNrbs?: boolean; // Controls Historical (Blue) Lines
+  showNrbClusters?: boolean;     // 🆕 Added: Controls Cluster (Yellow) Lines
 }
 
 const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -51,7 +52,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   consolidationZones,
   nrbGroups,
   showConsolidationZones = false,
-  showSingleLevelNrbs = false, 
+  showSingleLevelNrbs = false,
+  showNrbClusters = false, // 🆕 Default to false
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const infoBoxRef = useRef<HTMLDivElement | null>(null);
@@ -156,7 +158,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         parameterLineMarkersRef.current = createSeriesMarkers(parameterLineSeriesRef.current, []);
       }
 
-      // Hover Logic
+      // -----------------------------------------------------------------------
+      // HOVER LOGIC UPDATED
+      // -----------------------------------------------------------------------
       chart.subscribeCrosshairMove((param: MouseEventParams) => {
         if (!param.point || !nrbGroups || nrbGroups.length === 0 || !infoBoxRef.current || !candlestickSeriesRef.current || !chartRef.current) {
           if (infoBoxRef.current) infoBoxRef.current.style.display = "none";
@@ -179,14 +183,15 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const count = group.group_nrb_count || 0;
           const duration = group.group_duration_weeks || 0;
           const isExtendedLevel = duration > 24;
+          const isCluster = count > 1;
 
-          // Determine visibility based on toggle and type
+          // 🆕 UPDATED VISIBILITY CHECK
           let isVisible = false;
           
-          if (showSingleLevelNrbs && isExtendedLevel) {
-             isVisible = true; // Show long levels (Cyan)
-          } else if (count > 1) {
-             isVisible = true; // Show standard clusters (Yellow)
+          if (isExtendedLevel && showSingleLevelNrbs) {
+             isVisible = true; // Historical (Blue)
+          } else if (isCluster && showNrbClusters) {
+             isVisible = true; // Clusters (Yellow)
           }
 
           if (!isVisible) continue;
@@ -220,19 +225,17 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const durationText = foundGroup.group_duration_weeks ? `${foundGroup.group_duration_weeks} weeks` : "N/A";
           
           const isExtendedLevel = (foundGroup.group_duration_weeks || 0) > 24;
-          const isSingle = (foundGroup.group_nrb_count || 0) === 1;
           
-          // Determine color for Title
-          let titleColor = "#FFEA00"; // Default Yellow
+          let titleColor = "#FFEA00"; 
           let titleText = "NRB Pattern Group";
 
-          if (showSingleLevelNrbs && isExtendedLevel) {
+          // 🆕 Prioritize Extended Level styles if it's an extended level AND the toggle is ON
+          if (isExtendedLevel && showSingleLevelNrbs) {
              titleColor = "#00E5FF";
              titleText = "Historical Level";
-          } else if (isSingle) {
-             // Fallback for single (shouldn't happen with current logic but safe)
-             titleColor = "#00E5FF";
-             titleText = "Single Level NRB";
+          } else {
+             titleColor = "#FFEA00";
+             titleText = "NRB Cluster";
           }
 
           infoBoxRef.current.style.display = "block";
@@ -492,27 +495,24 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const count = group.group_nrb_count || 0;
           const duration = group.group_duration_weeks || 0;
           
-          // Logic:
-          // 1. "Extended Level" = Duration > 24 weeks.
-          // 2. "Cluster" = Count > 1.
-          
           const isExtendedLevel = duration > 24;
           const isCluster = count > 1;
 
           let lineColor: string | null = null;
           let style = LineStyle.Dashed;
 
-          if (showSingleLevelNrbs && isExtendedLevel) {
-             // If toggle is ON and it's a long level, prioritize Cyan/Solid
-             lineColor = "#00E5FF"; // Cyan
+          // 🆕 UPDATED: Check specific toggles
+          if (isExtendedLevel && showSingleLevelNrbs) {
+             // If extended duration (>24w) AND showSingleLevelNrbs is true -> Cyan
+             lineColor = "#00E5FF"; 
              style = LineStyle.Solid;
-          } else if (isCluster) {
-             // If not rendered as extended level, but is a cluster, render Yellow/Dashed
-             lineColor = "#FFEA00"; // Yellow
+          } else if (isCluster && showNrbClusters) {
+             // If cluster (>1 NRB) AND showNrbClusters is true -> Yellow
+             lineColor = "#FFEA00"; 
              style = LineStyle.Dashed;
           }
 
-          // If neither (e.g. single NRB < 24 weeks, OR extended level but toggle OFF), skip
+          // If neither matches the criteria+toggle, skip
           if (!lineColor) return;
 
           if (!group.group_start_time || !group.group_end_time || group.group_level == null) return;
@@ -664,6 +664,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     nrbGroups,
     showConsolidationZones,
     showSingleLevelNrbs, 
+    showNrbClusters, // 🆕 Add to dependencies
   ]);
 
   return (

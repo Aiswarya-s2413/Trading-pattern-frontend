@@ -545,7 +545,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
       
       // Markers Logic (Unchanged)
-      const zoneColors = ["#22c55e", "#3b82f6", "#f97316", "#a855f7", "#eab308", "#ef4444", "#14b8a6", "#6366f1"];
+      const zoneColors = ['#2196F3'];
       const zoneColorMap = new Map<number, string>();
       markers.forEach((m: any) => {
         if (m.consolidation_zone_id != null && !zoneColorMap.has(m.consolidation_zone_id)) {

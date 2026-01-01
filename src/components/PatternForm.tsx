@@ -17,8 +17,11 @@ const PatternForm: FC<PatternFormProps> = ({
   const [pattern, setPattern] = useState("nrb");
   const [weeks, setWeeks] = useState(52);
   const [parameter, setParameter] = useState("rsc30");
+  
+  // 🆕 CHANGED: Default cooldown set to 5
   const [cooldownWeeks, setCooldownWeeks] = useState(5);
   const [cooldownWeeksInput, setCooldownWeeksInput] = useState("5");
+  
   const [cooldownError, setCooldownError] = useState<string | null>(null);
 
   const validateCooldown = (value: number): string | null => {
@@ -55,8 +58,9 @@ const PatternForm: FC<PatternFormProps> = ({
 
   const handleCooldownBlur = () => {
     if (cooldownWeeksInput === "") {
-      setCooldownWeeksInput("4");
-      setCooldownWeeks(4);
+      // 🆕 CHANGED: Fallback to 5 if empty
+      setCooldownWeeksInput("5");
+      setCooldownWeeks(5);
       setCooldownError(null);
     }
   };
@@ -136,7 +140,7 @@ const PatternForm: FC<PatternFormProps> = ({
               value={cooldownWeeksInput}
               onChange={handleCooldownChange}
               onBlur={handleCooldownBlur}
-              placeholder="4"
+              placeholder="5" // 🆕 CHANGED placeholder
               className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
                 cooldownError
                   ? "border-red-500 focus:ring-red-500"

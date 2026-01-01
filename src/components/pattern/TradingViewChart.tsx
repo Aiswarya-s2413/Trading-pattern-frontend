@@ -159,7 +159,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
 
       // -----------------------------------------------------------------------
-      // HOVER LOGIC
+      // HOVER LOGIC UPDATED
       // -----------------------------------------------------------------------
       chart.subscribeCrosshairMove((param: MouseEventParams) => {
         if (!param.point || !nrbGroups || nrbGroups.length === 0 || !infoBoxRef.current || !candlestickSeriesRef.current || !chartRef.current) {
@@ -187,6 +187,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
           // VISIBILITY CHECK
           let isVisible = false;
+          
           if (isExtendedLevel && showSingleLevelNrbs) {
              isVisible = true; 
           } else if (isCluster && showNrbClusters) {
@@ -485,7 +486,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
 
       // ----------------------------------------------------
-      // 🆕 UPDATED: Parallel Line Filtering (Strict Overlap, No Buffer)
+      // 🆕 UPDATED: Aggressive Parallel Line Filtering (Historical Only)
       // ----------------------------------------------------
       if (nrbGroups && nrbGroups.length > 0) {
         
@@ -505,9 +506,10 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         // 2. Sort Historical candidates by Price (Descending - Highest First)
         historicalCandidates.sort((a, b) => (Number(b.group_level) || 0) - (Number(a.group_level) || 0));
 
-        // 3. Filter "Parallel" Lines (Strict Overlap)
+        // 3. Filter "Parallel" Lines (Aggressive)
         const filteredHistorical: NrbGroup[] = [];
-        
+        const TIME_BUFFER = 365 * 24 * 60 * 60; // 🆕 365 Days Buffer in Seconds
+
         historicalCandidates.forEach(candidate => {
             if (candidate.group_level == null || !candidate.group_start_time || !candidate.group_end_time) return;
             
@@ -524,14 +526,15 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 const endB = Number(accepted.group_end_time);
                 const levelB = Number(accepted.group_level);
                 
-                // 🆕 STRICT Overlap Calculation (No Buffer)
-                // Overlap exists if StartA < EndB AND StartB < EndA
-                const isOverlapping = (startA < endB) && (startB < endA);
+                // 🆕 AGGRESSIVE Overlap Calculation (With 365 Days Buffer)
+                // Overlap exists if StartA < EndB + Buffer AND StartB < EndA + Buffer
+                // This considers lines "overlapping" even if they are 1 year apart
+                const isOverlapping = (startA < (endB + TIME_BUFFER)) && (startB < (endA + TIME_BUFFER));
                 
-                // If strictly overlapping AND Price is close (< 7.5%)
+                // If broadly overlapping AND Price is close (< 20%)
                 if (isOverlapping) {
                     const priceDiffPct = Math.abs((levelA - levelB) / levelB);
-                    if (priceDiffPct < 0.075) {
+                    if (priceDiffPct < 1.00) { // 20% Tolerance
                         isRedundant = true; 
                         break;
                     }

@@ -18,7 +18,7 @@ const PatternForm: FC<PatternFormProps> = ({
   const [weeks, setWeeks] = useState(52);
   const [parameter, setParameter] = useState("rsc30");
   const [cooldownWeeks, setCooldownWeeks] = useState(5);
-  const [cooldownWeeksInput, setCooldownWeeksInput] = useState("20");
+  const [cooldownWeeksInput, setCooldownWeeksInput] = useState("5");
   const [cooldownError, setCooldownError] = useState<string | null>(null);
 
   const validateCooldown = (value: number): string | null => {

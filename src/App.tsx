@@ -248,7 +248,7 @@ function App() {
             {lastPattern === "nrb" && hasAnalyzed && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
-                  <span className="text-sm text-slate-300 font-medium">Show NRB Zones</span>
+                  <span className="text-sm text-slate-300 font-medium">Show NRB + Zones</span>
                   <input 
                     type="checkbox" 
                     checked={showSingleLevelNrbs} 
@@ -306,7 +306,7 @@ function App() {
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 <div className="mb-3">
                   <div className="text-slate-400 text-sm">
-                    Historical Levels ({currentSymbol})
+                   NRB + Zones ({currentSymbol})
                   </div>
                   <div className="text-lg font-semibold text-cyan-400">
                     {nrbSingles.length} Level{nrbSingles.length === 1 ? "" : "s"} found
@@ -381,7 +381,7 @@ function App() {
       </main>
 
       <div className="fixed bottom-2 right-2 text-slate-400 text-sm">
-        v0.0.4
+        v0.0.5
       </div>
     </div>
   );

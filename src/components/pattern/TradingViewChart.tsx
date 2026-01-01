@@ -36,7 +36,7 @@ interface TradingViewChartProps {
   nrbGroups?: NrbGroup[] | null;
   showConsolidationZones?: boolean;
   showSingleLevelNrbs?: boolean; // Controls Historical (Blue) Lines
-  showNrbClusters?: boolean;     // 🆕 Added: Controls Cluster (Yellow) Lines
+  showNrbClusters?: boolean;     // Controls Cluster (Yellow) Lines
 }
 
 const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -53,7 +53,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   nrbGroups,
   showConsolidationZones = false,
   showSingleLevelNrbs = false,
-  showNrbClusters = false, // 🆕 Default to false
+  showNrbClusters = false,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const infoBoxRef = useRef<HTMLDivElement | null>(null);
@@ -159,7 +159,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
 
       // -----------------------------------------------------------------------
-      // HOVER LOGIC UPDATED
+      // HOVER LOGIC
       // -----------------------------------------------------------------------
       chart.subscribeCrosshairMove((param: MouseEventParams) => {
         if (!param.point || !nrbGroups || nrbGroups.length === 0 || !infoBoxRef.current || !candlestickSeriesRef.current || !chartRef.current) {
@@ -185,13 +185,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const isExtendedLevel = duration > 24;
           const isCluster = count > 1;
 
-          // 🆕 UPDATED VISIBILITY CHECK
+          // VISIBILITY CHECK
           let isVisible = false;
-          
           if (isExtendedLevel && showSingleLevelNrbs) {
-             isVisible = true; // Historical (Blue)
+             isVisible = true; 
           } else if (isCluster && showNrbClusters) {
-             isVisible = true; // Clusters (Yellow)
+             isVisible = true; 
           }
 
           if (!isVisible) continue;
@@ -229,7 +228,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           let titleColor = "#FFEA00"; 
           let titleText = "NRB Pattern Group";
 
-          // 🆕 Prioritize Extended Level styles if it's an extended level AND the toggle is ON
           if (isExtendedLevel && showSingleLevelNrbs) {
              titleColor = "#00E5FF";
              titleText = "Historical Level";
@@ -273,7 +271,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     const showParameterLine = parameterSeriesName && parameterSeriesData && parameterSeriesData.length > 0;
     const isRSC30 = parameterSeriesName === "rsc30";
 
-    // Set Data for Main Series (Unchanged)
+    // Set Data for Main Series
     if (priceData.length > 0 || (showParameterLine && parameterSeriesData)) {
       if (showParameterLine) {
         candlestickSeries.applyOptions({ visible: false, priceScaleId: "" });
@@ -315,7 +313,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         ? parameterSeriesData.map((item) => ({ time: item.time as Time, open: item.value, high: item.value, low: item.value, close: item.value }))
         : priceData.map((item) => ({ time: item.time as Time, open: item.open, high: item.high, low: item.low, close: item.close }));
 
-      // Bowl Logic (Unchanged)
+      // Bowl Logic
       const isBowlPattern = chartTitle.toLowerCase().includes("bowl");
       const bowlMarkers = markers.filter((m) => {
         const mm: any = m;
@@ -397,7 +395,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         bowlSeries.setData(lineData);
       });
 
-      // NRB Range Lines (Unchanged)
+      // NRB Range Lines
       nrbRangeSeriesRefs.current.forEach((series) => {
         series.setData([]);
       });
@@ -429,7 +427,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lowSeries.setData([{ time: marker.range_start_time as Time, value: marker.range_low as number }, { time: marker.range_end_time as Time, value: marker.range_low as number }]);
       });
 
-      // Consolidation Boxes (Unchanged)
+      // Consolidation Boxes
       if (showConsolidationZones && consolidationZones && consolidationZones.length > 0) {
         const lineColor = "#22c55e"; 
         consolidationZones.forEach((zone) => {
@@ -487,11 +485,68 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
 
       // ----------------------------------------------------
-      // 🆕 UPDATED: NRB Group Lines Logic (Cyan/Yellow)
+      // 🆕 UPDATED: Parallel Line Filtering (Strict Overlap, No Buffer)
       // ----------------------------------------------------
       if (nrbGroups && nrbGroups.length > 0) {
         
-        nrbGroups.forEach((group) => {
+        // 1. Identify "Historical" (Blue candidates) vs "Clusters"
+        const historicalCandidates: NrbGroup[] = [];
+        const otherGroups: NrbGroup[] = [];
+
+        nrbGroups.forEach(g => {
+            const duration = g.group_duration_weeks || 0;
+            if (duration > 24) {
+                historicalCandidates.push(g);
+            } else {
+                otherGroups.push(g);
+            }
+        });
+
+        // 2. Sort Historical candidates by Price (Descending - Highest First)
+        historicalCandidates.sort((a, b) => (Number(b.group_level) || 0) - (Number(a.group_level) || 0));
+
+        // 3. Filter "Parallel" Lines (Strict Overlap)
+        const filteredHistorical: NrbGroup[] = [];
+        
+        historicalCandidates.forEach(candidate => {
+            if (candidate.group_level == null || !candidate.group_start_time || !candidate.group_end_time) return;
+            
+            let isRedundant = false;
+            const startA = Number(candidate.group_start_time);
+            const endA = Number(candidate.group_end_time);
+            const levelA = Number(candidate.group_level);
+            
+            // Check against already accepted higher lines
+            for (const accepted of filteredHistorical) {
+                if (accepted.group_level == null || !accepted.group_start_time || !accepted.group_end_time) continue;
+
+                const startB = Number(accepted.group_start_time);
+                const endB = Number(accepted.group_end_time);
+                const levelB = Number(accepted.group_level);
+                
+                // 🆕 STRICT Overlap Calculation (No Buffer)
+                // Overlap exists if StartA < EndB AND StartB < EndA
+                const isOverlapping = (startA < endB) && (startB < endA);
+                
+                // If strictly overlapping AND Price is close (< 7.5%)
+                if (isOverlapping) {
+                    const priceDiffPct = Math.abs((levelA - levelB) / levelB);
+                    if (priceDiffPct < 0.075) {
+                        isRedundant = true; 
+                        break;
+                    }
+                }
+            }
+            
+            if (!isRedundant) {
+                filteredHistorical.push(candidate);
+            }
+        });
+
+        // 4. Merge back for drawing (Filtered Historical + All Others)
+        const groupsToDraw = [...filteredHistorical, ...otherGroups];
+
+        groupsToDraw.forEach((group) => {
           const count = group.group_nrb_count || 0;
           const duration = group.group_duration_weeks || 0;
           
@@ -501,18 +556,15 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           let lineColor: string | null = null;
           let style = LineStyle.Dashed;
 
-          // 🆕 UPDATED: Check specific toggles
+          // Drawing Logic
           if (isExtendedLevel && showSingleLevelNrbs) {
-             // If extended duration (>24w) AND showSingleLevelNrbs is true -> Cyan
              lineColor = "#00E5FF"; 
              style = LineStyle.Solid;
           } else if (isCluster && showNrbClusters) {
-             // If cluster (>1 NRB) AND showNrbClusters is true -> Yellow
              lineColor = "#FFEA00"; 
              style = LineStyle.Dashed;
           }
 
-          // If neither matches the criteria+toggle, skip
           if (!lineColor) return;
 
           if (!group.group_start_time || !group.group_end_time || group.group_level == null) return;
@@ -544,7 +596,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         });
       }
       
-      // Markers Logic (Unchanged)
+      // Markers Logic
       const zoneColors = ['#2196F3'];
       const zoneColorMap = new Map<number, string>();
       markers.forEach((m: any) => {
@@ -640,15 +692,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
     }
     
-    // ...
     const zoneMarkers = markers.filter((m: any) => m.consolidation_zone_id === selectedNrbGroupId);
     const times: number[] = [];
     zoneMarkers.forEach((m: any) => {
       if (m.time != null) times.push(Number(m.time));
-      // ...
     });
 
-    // ...
     return () => { window.removeEventListener("resize", handleResize); };
   }, [
     priceData,
@@ -664,7 +713,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
     nrbGroups,
     showConsolidationZones,
     showSingleLevelNrbs, 
-    showNrbClusters, // 🆕 Add to dependencies
+    showNrbClusters,
   ]);
 
   return (

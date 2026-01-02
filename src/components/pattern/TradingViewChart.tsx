@@ -496,71 +496,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
 
       // ----------------------------------------------------
-      // SORT-INDEPENDENT HIGHEST LINE LOGIC (Preserved)
+      // UPDATED: NO FILTERING - DRAW ALL GROUPS
       // ----------------------------------------------------
       if (nrbGroups && nrbGroups.length > 0) {
         
-        // 1. Identify Groups
-        const historicalCandidates: NrbGroup[] = [];
-        const otherGroups: NrbGroup[] = [];
-
-        nrbGroups.forEach(g => {
-            const duration = g.group_duration_weeks || 0;
-            if (duration > 24) {
-                historicalCandidates.push(g);
-            } else {
-                otherGroups.push(g);
-            }
-        });
-
-        // 2. Logic: "King of the Hill" - Always keep the highest price line in any overlap cluster
-        const finalHistoricalLines: NrbGroup[] = [];
-        
-        // 365 Days Buffer + 100% Tolerance
-        const TIME_BUFFER = 365 * 24 * 60 * 60; 
-
-        historicalCandidates.forEach(candidate => {
-            if (candidate.group_level == null || !candidate.group_start_time || !candidate.group_end_time) return;
-            
-            const startA = Number(candidate.group_start_time);
-            const endA = Number(candidate.group_end_time);
-            const levelA = Number(candidate.group_level);
-            
-            let overlapsWithExisting = false;
-
-            // Check against ALREADY accepted lines
-            for (let i = 0; i < finalHistoricalLines.length; i++) {
-                const existing = finalHistoricalLines[i];
-                if (!existing.group_start_time || !existing.group_end_time || existing.group_level == null) continue;
-
-                const startB = Number(existing.group_start_time);
-                const endB = Number(existing.group_end_time);
-                const levelB = Number(existing.group_level);
-
-                // Check Overlap
-                const isOverlapping = (startA < (endB + TIME_BUFFER)) && (startB < (endA + TIME_BUFFER));
-                
-                // If they Overlap...
-                if (isOverlapping) {
-                    overlapsWithExisting = true;
-                    // ...and the NEW Candidate is HIGHER than the EXISTING one...
-                    if (levelA > levelB) {
-                        // REPLACE existing with the new, higher one
-                        finalHistoricalLines[i] = candidate;
-                    }
-                    // Else: Existing is higher (or equal), so we ignore the new candidate.
-                    break; // Stop checking, we found the cluster
-                }
-            }
-
-            // If it didn't overlap with anything, add it as a new distinct line
-            if (!overlapsWithExisting) {
-                finalHistoricalLines.push(candidate);
-            }
-        });
-
-        // 3. Merge back for drawing
-        const groupsToDraw = [...finalHistoricalLines, ...otherGroups];
+        // 🟢 CHANGED: Use all groups directly (No "King of the Hill" filtering)
+        const groupsToDraw = nrbGroups;
 
         groupsToDraw.forEach((group) => {
           const count = group.group_nrb_count || 0;
@@ -572,11 +513,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           let lineColor: string | null = null;
           let style = LineStyle.Dashed;
 
+          // Determine Style based on properties
           if (isExtendedLevel && showSingleLevelNrbs) {
-             lineColor = "#00E5FF"; 
+             lineColor = "#00E5FF"; // Blue for Historical
              style = LineStyle.Solid;
           } else if (isCluster && showNrbClusters) {
-             lineColor = "#FFEA00"; 
+             lineColor = "#FFEA00"; // Yellow for Clusters
              style = LineStyle.Dashed;
           }
 
@@ -610,7 +552,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           
           lineSeries.setData([{ time: startTime as Time, value: level }, { time: endTime as Time, value: level }]);
 
-          // 🆕 90% LINE LOGIC (Only for Historical/Cyan)
+          // 90% LINE LOGIC (Only for Historical/Cyan)
           if (isExtendedLevel && showSingleLevelNrbs) {
              const level90 = level * 0.9;
              const key90 = `nrb-group-${group.group_id}-90`;

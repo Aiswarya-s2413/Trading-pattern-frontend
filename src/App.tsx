@@ -120,78 +120,19 @@ function App() {
   };
 
   // ---------------------------------------------------------
-  // 🟢 LOGIC UPDATE: Filter Hidden Lines (Match Graph)
+  // 🟢 LOGIC UPDATE: Removed Parallel Line Filtering
+  // We now simply use all groups returned by the backend.
   // ---------------------------------------------------------
   
-  // This helper function replicates the "King of the Hill" logic from TradingViewChart.tsx
-  // ensuring we only list groups that are actually visible on the chart.
-  const getVisibleGroups = (allGroups: any[] | null) => {
-    if (!allGroups) return [];
-
-    // 1. Separate Historical Candidates (>24w) from Clusters
-    const historicalCandidates: any[] = [];
-    const otherGroups: any[] = []; // Yellow clusters are always visible
-
-    allGroups.forEach(g => {
-        const duration = g.group_duration_weeks || 0;
-        if (duration > 24) {
-            historicalCandidates.push(g);
-        } else {
-            otherGroups.push(g);
-        }
-    });
-
-    // 2. Apply "King of the Hill" logic to Historical lines
-    // Strategy: Sort by Price (Highest first). If a lower line overlaps in time, discard it.
-    historicalCandidates.sort((a, b) => (b.group_level || 0) - (a.group_level || 0));
-
-    const visibleHistorical: any[] = [];
-    const TIME_BUFFER = 365 * 24 * 60 * 60; // 365 Days overlap buffer
-
-    historicalCandidates.forEach(candidate => {
-        const startA = candidate.group_start_time;
-        const endA = candidate.group_end_time;
-        
-        if (!startA || !endA) return;
-
-        let isHidden = false;
-
-        // Check against lines we have already accepted (which are guaranteed to be higher price)
-        for (const existing of visibleHistorical) {
-            const startB = existing.group_start_time;
-            const endB = existing.group_end_time;
-
-            // Check Time Overlap
-            const isOverlapping = (startA < (endB + TIME_BUFFER)) && (startB < (endA + TIME_BUFFER));
-
-            if (isOverlapping) {
-                // Since 'existing' is already in the list, and we sorted by Price Descending,
-                // 'existing' has a higher price. Therefore, 'candidate' (lower price) is hidden.
-                isHidden = true;
-                break;
-            }
-        }
-
-        if (!isHidden) {
-            visibleHistorical.push(candidate);
-        }
-    });
-
-    // Return the combined list of Visible Historical + All Clusters
-    return [...visibleHistorical, ...otherGroups];
-  };
-
-  // Get the clean list
-  const visibleGroups = getVisibleGroups(nrbGroups);
+  const allGroups = nrbGroups || [];
 
   // 1. Historical Levels (Cyan/Blue)
-  // Logic: Must be in visible list AND Duration > 24 weeks
-  const nrbSingles = visibleGroups.filter(g => (g.group_duration_weeks || 0) > 24);
+  // Logic: Duration > 24 weeks
+  const nrbSingles = allGroups.filter(g => (g.group_duration_weeks || 0) > 24);
 
   // 2. Clusters (Yellow)
-  // Logic: Just needs Count > 1 (Duplicates allowed, can appear in both lists)
-  const nrbClusters = visibleGroups.filter(g => (g.group_nrb_count || 0) > 1);
-
+  // Logic: Count > 1
+  const nrbClusters = allGroups.filter(g => (g.group_nrb_count || 0) > 1);
 
   const renderGroupCard = (group: any, isSelected: boolean) => {
     let countAbove98 = 0;

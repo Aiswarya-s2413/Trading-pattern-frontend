@@ -24,9 +24,7 @@ function App() {
   
   const [showConsolidationZones, setShowConsolidationZones] = useState(false);
   
-  // 🆕 CHANGED: Blue line (Historical) default ON
   const [showSingleLevelNrbs, setShowSingleLevelNrbs] = useState(true);
-  // 🆕 ADDED: Yellow line (Clusters) default OFF
   const [showNrbClusters, setShowNrbClusters] = useState(false);
 
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
@@ -121,11 +119,79 @@ function App() {
     return <span className={color}>{sign}{rate.toFixed(1)}%</span>;
   };
 
-  // Existing Clusters (> 1 NRB)
-  const nrbClusters = nrbGroups ? nrbGroups.filter(g => (g.group_nrb_count || 0) > 1) : [];
+  // ---------------------------------------------------------
+  // 🟢 LOGIC UPDATE: Filter Hidden Lines (Match Graph)
+  // ---------------------------------------------------------
   
-  // Captures ANY level > 24 weeks (regardless of NRB count)
-  const nrbSingles = nrbGroups ? nrbGroups.filter(g => (g.group_duration_weeks || 0) > 24) : [];
+  // This helper function replicates the "King of the Hill" logic from TradingViewChart.tsx
+  // ensuring we only list groups that are actually visible on the chart.
+  const getVisibleGroups = (allGroups: any[] | null) => {
+    if (!allGroups) return [];
+
+    // 1. Separate Historical Candidates (>24w) from Clusters
+    const historicalCandidates: any[] = [];
+    const otherGroups: any[] = []; // Yellow clusters are always visible
+
+    allGroups.forEach(g => {
+        const duration = g.group_duration_weeks || 0;
+        if (duration > 24) {
+            historicalCandidates.push(g);
+        } else {
+            otherGroups.push(g);
+        }
+    });
+
+    // 2. Apply "King of the Hill" logic to Historical lines
+    // Strategy: Sort by Price (Highest first). If a lower line overlaps in time, discard it.
+    historicalCandidates.sort((a, b) => (b.group_level || 0) - (a.group_level || 0));
+
+    const visibleHistorical: any[] = [];
+    const TIME_BUFFER = 365 * 24 * 60 * 60; // 365 Days overlap buffer
+
+    historicalCandidates.forEach(candidate => {
+        const startA = candidate.group_start_time;
+        const endA = candidate.group_end_time;
+        
+        if (!startA || !endA) return;
+
+        let isHidden = false;
+
+        // Check against lines we have already accepted (which are guaranteed to be higher price)
+        for (const existing of visibleHistorical) {
+            const startB = existing.group_start_time;
+            const endB = existing.group_end_time;
+
+            // Check Time Overlap
+            const isOverlapping = (startA < (endB + TIME_BUFFER)) && (startB < (endA + TIME_BUFFER));
+
+            if (isOverlapping) {
+                // Since 'existing' is already in the list, and we sorted by Price Descending,
+                // 'existing' has a higher price. Therefore, 'candidate' (lower price) is hidden.
+                isHidden = true;
+                break;
+            }
+        }
+
+        if (!isHidden) {
+            visibleHistorical.push(candidate);
+        }
+    });
+
+    // Return the combined list of Visible Historical + All Clusters
+    return [...visibleHistorical, ...otherGroups];
+  };
+
+  // Get the clean list
+  const visibleGroups = getVisibleGroups(nrbGroups);
+
+  // 1. Historical Levels (Cyan/Blue)
+  // Logic: Must be in visible list AND Duration > 24 weeks
+  const nrbSingles = visibleGroups.filter(g => (g.group_duration_weeks || 0) > 24);
+
+  // 2. Clusters (Yellow)
+  // Logic: Just needs Count > 1 (Duplicates allowed, can appear in both lists)
+  const nrbClusters = visibleGroups.filter(g => (g.group_nrb_count || 0) > 1);
+
 
   const renderGroupCard = (group: any, isSelected: boolean) => {
     let countAbove98 = 0;
@@ -134,21 +200,13 @@ function App() {
 
     if (group.near_touches) {
       group.near_touches.forEach((t: any) => {
-        // Use min_diff_pct (Closest point of the attempt)
         const diff = t.min_diff_pct; 
-        
-        // Count Attempts (Increment by 1, NOT t.count)
-        if (diff < 2.0) {
-          countAbove98 += 1;
-        } else if (diff < 5.0) {
-          count95to98 += 1;
-        } else if (diff < 10.0) {
-          count90to95 += 1;
-        }
+        if (diff < 2.0) countAbove98 += 1;
+        else if (diff < 5.0) count95to98 += 1;
+        else if (diff < 10.0) count90to95 += 1;
       });
     }
 
-    // Determine color: Cyan if it's a Long Level, Yellow if it's just a Cluster
     const isLevel = (group.group_duration_weeks || 0) > 24;
 
     return (
@@ -226,7 +284,6 @@ function App() {
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 h-[85vh]">
-          {/* 🆕 PASSED showNrbClusters prop */}
           <ChartContainer 
             selectedNrbGroupId={selectedNrbGroupId} 
             showConsolidationZones={showConsolidationZones}
@@ -244,7 +301,6 @@ function App() {
               onToggleConsolidationZones={setShowConsolidationZones}
             />
 
-            {/* 🆕 UPDATED: Two Checkboxes for Blue/Yellow Lines */}
             {lastPattern === "nrb" && hasAnalyzed && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
@@ -284,7 +340,7 @@ function App() {
               </div>
             </div>
 
-            {/* Clusters (>1 NRB) - 🆕 Only show if Toggle ON */}
+            {/* Clusters (Yellow) */}
             {lastPattern === "nrb" && hasAnalyzed && showNrbClusters && nrbClusters.length > 0 && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 <div className="mb-3">
@@ -301,7 +357,7 @@ function App() {
               </div>
             )}
 
-            {/* Extended Levels (>24 weeks) - Only visible if toggle is ON */}
+            {/* Historical (Blue) */}
             {lastPattern === "nrb" && hasAnalyzed && showSingleLevelNrbs && nrbSingles.length > 0 && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 <div className="mb-3">
@@ -318,7 +374,6 @@ function App() {
               </div>
             )}
 
-            {/* Consolidation Zones */}
             {lastPattern === "nrb" && showConsolidationZones && hasAnalyzed && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 {(() => {
@@ -381,7 +436,7 @@ function App() {
       </main>
 
       <div className="fixed bottom-2 right-2 text-slate-400 text-sm">
-        v0.0.6
+        v0.0.7
       </div>
     </div>
   );

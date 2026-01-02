@@ -69,6 +69,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   
   const bowlSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
   const nrbRangeSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
+  // 🆕 NEW REF: To hold the 90% lines
+  const nrb90PercentSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
+  
   const candlestickMarkersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
   const parameterLineMarkersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
 
@@ -107,6 +110,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         wickVisible: false,
         priceLineVisible: false,
         lastValueVisible: false,
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
       });
 
       candlestickSeriesRef.current = chart.addSeries(CandlestickSeries, {
@@ -115,6 +119,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         borderVisible: false,
         wickUpColor: "#26a69a",
         wickDownColor: "#ef5350",
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
       });
 
       parameterLineSeriesRef.current = chart.addSeries(LineSeries, {
@@ -123,6 +128,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lineStyle: 0,
         crosshairMarkerVisible: true,
         priceLineVisible: false,
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
       });
 
       parameterLineSeriesEma5Ref.current = chart.addSeries(LineSeries, {
@@ -132,6 +138,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         crosshairMarkerVisible: true,
         priceLineVisible: false,
         visible: false,
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
       });
 
       parameterLineSeriesEma10Ref.current = chart.addSeries(LineSeries, {
@@ -141,6 +148,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         crosshairMarkerVisible: true,
         priceLineVisible: false,
         visible: false,
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
       });
 
       week52HighSeriesRef.current = chart.addSeries(LineSeries, {
@@ -149,6 +157,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lineStyle: 1,
         crosshairMarkerVisible: false,
         priceLineVisible: false,
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
       });
 
       if (candlestickSeriesRef.current && !candlestickMarkersRef.current) {
@@ -187,7 +196,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
           // VISIBILITY CHECK
           let isVisible = false;
-          
           if (isExtendedLevel && showSingleLevelNrbs) {
              isVisible = true; 
           } else if (isCluster && showNrbClusters) {
@@ -221,7 +229,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           };
 
           const levelVal = Number(foundGroup.group_level);
-          const formattedLevel = Math.abs(levelVal) < 5 ? levelVal.toFixed(5) : levelVal.toFixed(2);
+          const formattedLevel = Math.abs(levelVal) < 5 ? levelVal.toFixed(5) : levelVal.toFixed(4); // Ensure 4 decimal display
           const durationText = foundGroup.group_duration_weeks ? `${foundGroup.group_duration_weeks} weeks` : "N/A";
           
           const isExtendedLevel = (foundGroup.group_duration_weeks || 0) > 24;
@@ -298,7 +306,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           parameterLineSeriesEma10.setData([]);
           const lineColors: Record<string, string> = { ema21: "#00E5FF", ema50: "#2962FF", ema200: "#7C4DFF", rsc500: "#FFD600" };
           const lineColor = lineColors[parameterSeriesName || ""] || "#2962FF";
-          parameterLineSeries.applyOptions({ visible: true, color: lineColor, lineWidth: 2, priceScaleId: "right", priceFormat: { type: "price", precision: 2, minMove: 0.01 } } as any);
+          parameterLineSeries.applyOptions({ visible: true, color: lineColor, lineWidth: 2, priceScaleId: "right", priceFormat: { type: "price", precision: 4, minMove: 0.0001 } } as any);
           if (parameterSeriesData) parameterLineSeries.setData(parameterSeriesData.map(item => ({ time: item.time as Time, value: item.value })));
         }
       } else {
@@ -361,7 +369,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         const seriesKey = String(numericPatternId);
         let bowlSeries = bowlSeriesRefs.current.get(seriesKey);
         if (!bowlSeries) {
-          bowlSeries = chart.addSeries(LineSeries, { color, lineWidth: 3, lineStyle: 0, crosshairMarkerVisible: false, priceLineVisible: false });
+          bowlSeries = chart.addSeries(LineSeries, { color, lineWidth: 3, lineStyle: 0, crosshairMarkerVisible: false, priceLineVisible: false, priceFormat: { type: 'price', precision: 4, minMove: 0.0001 } });
           bowlSeriesRefs.current.set(seriesKey, bowlSeries);
         } else {
           bowlSeries.applyOptions({ color, lineWidth: 3, lineStyle: 0 });
@@ -396,8 +404,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         bowlSeries.setData(lineData);
       });
 
-      // NRB Range Lines
+      // NRB Range Lines (Clear)
       nrbRangeSeriesRefs.current.forEach((series) => {
+        series.setData([]);
+      });
+      // 🆕 Clear 90% lines
+      nrb90PercentSeriesRefs.current.forEach((series) => {
         series.setData([]);
       });
 
@@ -414,7 +426,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         const highKey = `${id}-high`;
         let highSeries = nrbRangeSeriesRefs.current.get(highKey);
         if (!highSeries) {
-          highSeries = chart.addSeries(LineSeries, { color: "#888888", lineWidth: 1, lineStyle: 1, crosshairMarkerVisible: false, priceLineVisible: false });
+          highSeries = chart.addSeries(LineSeries, { color: "#888888", lineWidth: 1, lineStyle: 1, crosshairMarkerVisible: false, priceLineVisible: false, priceFormat: { type: 'price', precision: 4, minMove: 0.0001 } });
           nrbRangeSeriesRefs.current.set(highKey, highSeries);
         }
         highSeries.setData([{ time: marker.range_start_time as Time, value: marker.range_high as number }, { time: marker.range_end_time as Time, value: marker.range_high as number }]);
@@ -422,7 +434,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         const lowKey = `${id}-low`;
         let lowSeries = nrbRangeSeriesRefs.current.get(lowKey);
         if (!lowSeries) {
-          lowSeries = chart.addSeries(LineSeries, { color: "#888888", lineWidth: 1, lineStyle: 1, crosshairMarkerVisible: false, priceLineVisible: false });
+          lowSeries = chart.addSeries(LineSeries, { color: "#888888", lineWidth: 1, lineStyle: 1, crosshairMarkerVisible: false, priceLineVisible: false, priceFormat: { type: 'price', precision: 4, minMove: 0.0001 } });
           nrbRangeSeriesRefs.current.set(lowKey, lowSeries);
         }
         lowSeries.setData([{ time: marker.range_start_time as Time, value: marker.range_low as number }, { time: marker.range_end_time as Time, value: marker.range_low as number }]);
@@ -486,11 +498,11 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
 
       // ----------------------------------------------------
-      // 🆕 UPDATED: Aggressive Parallel Line Filtering (Historical Only)
+      // SORT-INDEPENDENT HIGHEST LINE LOGIC (Preserved)
       // ----------------------------------------------------
       if (nrbGroups && nrbGroups.length > 0) {
         
-        // 1. Identify "Historical" (Blue candidates) vs "Clusters"
+        // 1. Identify Groups
         const historicalCandidates: NrbGroup[] = [];
         const otherGroups: NrbGroup[] = [];
 
@@ -503,51 +515,56 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             }
         });
 
-        // 2. Sort Historical candidates by Price (Descending - Highest First)
-        historicalCandidates.sort((a, b) => (Number(b.group_level) || 0) - (Number(a.group_level) || 0));
-
-        // 3. Filter "Parallel" Lines (Aggressive)
-        const filteredHistorical: NrbGroup[] = [];
-        const TIME_BUFFER = 365 * 24 * 60 * 60; // 🆕 365 Days Buffer in Seconds
+        // 2. Logic: "King of the Hill" - Always keep the highest price line in any overlap cluster
+        const finalHistoricalLines: NrbGroup[] = [];
+        
+        // 365 Days Buffer + 100% Tolerance
+        const TIME_BUFFER = 365 * 24 * 60 * 60; 
 
         historicalCandidates.forEach(candidate => {
             if (candidate.group_level == null || !candidate.group_start_time || !candidate.group_end_time) return;
             
-            let isRedundant = false;
             const startA = Number(candidate.group_start_time);
             const endA = Number(candidate.group_end_time);
             const levelA = Number(candidate.group_level);
             
-            // Check against already accepted higher lines
-            for (const accepted of filteredHistorical) {
-                if (accepted.group_level == null || !accepted.group_start_time || !accepted.group_end_time) continue;
+            let replacedExisting = false;
+            let overlapsWithExisting = false;
 
-                const startB = Number(accepted.group_start_time);
-                const endB = Number(accepted.group_end_time);
-                const levelB = Number(accepted.group_level);
-                
-                // 🆕 AGGRESSIVE Overlap Calculation (With 365 Days Buffer)
-                // Overlap exists if StartA < EndB + Buffer AND StartB < EndA + Buffer
-                // This considers lines "overlapping" even if they are 1 year apart
+            // Check against ALREADY accepted lines
+            for (let i = 0; i < finalHistoricalLines.length; i++) {
+                const existing = finalHistoricalLines[i];
+                if (!existing.group_start_time || !existing.group_end_time || existing.group_level == null) continue;
+
+                const startB = Number(existing.group_start_time);
+                const endB = Number(existing.group_end_time);
+                const levelB = Number(existing.group_level);
+
+                // Check Overlap
                 const isOverlapping = (startA < (endB + TIME_BUFFER)) && (startB < (endA + TIME_BUFFER));
                 
-                // If broadly overlapping AND Price is close (< 20%)
+                // If they Overlap...
                 if (isOverlapping) {
-                    const priceDiffPct = Math.abs((levelA - levelB) / levelB);
-                    if (priceDiffPct < 1.00) { // 20% Tolerance
-                        isRedundant = true; 
-                        break;
+                    overlapsWithExisting = true;
+                    // ...and the NEW Candidate is HIGHER than the EXISTING one...
+                    if (levelA > levelB) {
+                        // REPLACE existing with the new, higher one
+                        finalHistoricalLines[i] = candidate;
+                        replacedExisting = true;
                     }
+                    // Else: Existing is higher (or equal), so we ignore the new candidate.
+                    break; // Stop checking, we found the cluster
                 }
             }
-            
-            if (!isRedundant) {
-                filteredHistorical.push(candidate);
+
+            // If it didn't overlap with anything, add it as a new distinct line
+            if (!overlapsWithExisting) {
+                finalHistoricalLines.push(candidate);
             }
         });
 
-        // 4. Merge back for drawing (Filtered Historical + All Others)
-        const groupsToDraw = [...filteredHistorical, ...otherGroups];
+        // 3. Merge back for drawing
+        const groupsToDraw = [...finalHistoricalLines, ...otherGroups];
 
         groupsToDraw.forEach((group) => {
           const count = group.group_nrb_count || 0;
@@ -559,7 +576,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           let lineColor: string | null = null;
           let style = LineStyle.Dashed;
 
-          // Drawing Logic
           if (isExtendedLevel && showSingleLevelNrbs) {
              lineColor = "#00E5FF"; 
              style = LineStyle.Solid;
@@ -586,6 +602,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
               lineStyle: style,
               crosshairMarkerVisible: false,
               priceLineVisible: false,
+              priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
             });
             nrbRangeSeriesRefs.current.set(lineKey, lineSeries);
           } else {
@@ -596,6 +613,31 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           }
           
           lineSeries.setData([{ time: startTime as Time, value: level }, { time: endTime as Time, value: level }]);
+
+          // 🆕 90% LINE LOGIC (Only for Historical/Cyan)
+          if (isExtendedLevel && showSingleLevelNrbs) {
+             const level90 = level * 0.9;
+             const key90 = `nrb-group-${group.group_id}-90`;
+             let series90 = nrb90PercentSeriesRefs.current.get(key90);
+
+             if (!series90) {
+                series90 = chart.addSeries(LineSeries, {
+                   color: "rgba(0, 229, 255, 0.5)", // Dimmer Cyan
+                   lineWidth: 1,
+                   lineStyle: LineStyle.Dotted,
+                   crosshairMarkerVisible: false,
+                   priceLineVisible: false,
+                   priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
+                });
+                nrb90PercentSeriesRefs.current.set(key90, series90);
+             } else {
+                series90.applyOptions({
+                   color: "rgba(0, 229, 255, 0.5)",
+                   lineStyle: LineStyle.Dotted,
+                });
+             }
+             series90.setData([{ time: startTime as Time, value: level90 }, { time: endTime as Time, value: level90 }]);
+          }
         });
       }
       
@@ -669,6 +711,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       parameterLineMarkersRef.current?.setMarkers([]);
       bowlSeriesRefs.current.forEach((series) => series.setData([]));
       nrbRangeSeriesRefs.current.forEach((series) => series.setData([]));
+      // 🆕 Clear 90% lines on unmount/empty
+      nrb90PercentSeriesRefs.current.forEach((series) => series.setData([]));
     }
 
     const handleResize = () => { if (chartContainerRef.current && chartRef.current) chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth }); };

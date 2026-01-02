@@ -69,7 +69,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
   
   const bowlSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
   const nrbRangeSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
-  // 🆕 NEW REF: To hold the 90% lines
   const nrb90PercentSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
   
   const candlestickMarkersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
@@ -110,7 +109,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         wickVisible: false,
         priceLineVisible: false,
         lastValueVisible: false,
-        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, 
       });
 
       candlestickSeriesRef.current = chart.addSeries(CandlestickSeries, {
@@ -119,7 +118,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         borderVisible: false,
         wickUpColor: "#26a69a",
         wickDownColor: "#ef5350",
-        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, 
       });
 
       parameterLineSeriesRef.current = chart.addSeries(LineSeries, {
@@ -128,7 +127,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lineStyle: 0,
         crosshairMarkerVisible: true,
         priceLineVisible: false,
-        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, 
       });
 
       parameterLineSeriesEma5Ref.current = chart.addSeries(LineSeries, {
@@ -138,7 +137,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         crosshairMarkerVisible: true,
         priceLineVisible: false,
         visible: false,
-        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, 
       });
 
       parameterLineSeriesEma10Ref.current = chart.addSeries(LineSeries, {
@@ -148,7 +147,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         crosshairMarkerVisible: true,
         priceLineVisible: false,
         visible: false,
-        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, 
       });
 
       week52HighSeriesRef.current = chart.addSeries(LineSeries, {
@@ -157,7 +156,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         lineStyle: 1,
         crosshairMarkerVisible: false,
         priceLineVisible: false,
-        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, // Precision 4
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }, 
       });
 
       if (candlestickSeriesRef.current && !candlestickMarkersRef.current) {
@@ -229,7 +228,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           };
 
           const levelVal = Number(foundGroup.group_level);
-          const formattedLevel = Math.abs(levelVal) < 5 ? levelVal.toFixed(5) : levelVal.toFixed(4); // Ensure 4 decimal display
+          const formattedLevel = Math.abs(levelVal) < 5 ? levelVal.toFixed(5) : levelVal.toFixed(4); 
           const durationText = foundGroup.group_duration_weeks ? `${foundGroup.group_duration_weeks} weeks` : "N/A";
           
           const isExtendedLevel = (foundGroup.group_duration_weeks || 0) > 24;
@@ -408,7 +407,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       nrbRangeSeriesRefs.current.forEach((series) => {
         series.setData([]);
       });
-      // 🆕 Clear 90% lines
       nrb90PercentSeriesRefs.current.forEach((series) => {
         series.setData([]);
       });
@@ -528,7 +526,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             const endA = Number(candidate.group_end_time);
             const levelA = Number(candidate.group_level);
             
-            let replacedExisting = false;
             let overlapsWithExisting = false;
 
             // Check against ALREADY accepted lines
@@ -550,7 +547,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     if (levelA > levelB) {
                         // REPLACE existing with the new, higher one
                         finalHistoricalLines[i] = candidate;
-                        replacedExisting = true;
                     }
                     // Else: Existing is higher (or equal), so we ignore the new candidate.
                     break; // Stop checking, we found the cluster

@@ -18,11 +18,17 @@ const PatternForm: FC<PatternFormProps> = ({
   const [weeks, setWeeks] = useState(52);
   const [parameter, setParameter] = useState("rsc30");
   
-  // 🆕 CHANGED: Default cooldown set to 5
+  // Cooldown State
   const [cooldownWeeks, setCooldownWeeks] = useState(5);
   const [cooldownWeeksInput, setCooldownWeeksInput] = useState("5");
-  
   const [cooldownError, setCooldownError] = useState<string | null>(null);
+
+  // 🆕 NEW STATE: Dip Threshold (Default 20%)
+  const [dipThreshold, setDipThreshold] = useState(20);
+  const [dipThresholdInput, setDipThresholdInput] = useState("20");
+  const [dipThresholdError, setDipThresholdError] = useState<string | null>(null);
+
+  // --- Validation Logic ---
 
   const validateCooldown = (value: number): string | null => {
     if (isNaN(value) || !Number.isInteger(value)) {
@@ -37,6 +43,15 @@ const PatternForm: FC<PatternFormProps> = ({
     return null;
   };
 
+  const validateDipThreshold = (value: number): string | null => {
+    if (isNaN(value)) return "Please enter a valid number";
+    if (value < 0) return "Threshold cannot be negative";
+    if (value > 100) return "Threshold cannot exceed 100%";
+    return null;
+  };
+
+  // --- Handlers ---
+
   const handleCooldownChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setCooldownWeeksInput(value);
@@ -46,7 +61,6 @@ const PatternForm: FC<PatternFormProps> = ({
       return;
     }
 
-    // Parse as integer (remove decimals)
     const numValue = Math.floor(Number(value));
     const error = validateCooldown(numValue);
     setCooldownError(error);
@@ -58,20 +72,54 @@ const PatternForm: FC<PatternFormProps> = ({
 
   const handleCooldownBlur = () => {
     if (cooldownWeeksInput === "") {
-      // 🆕 CHANGED: Fallback to 5 if empty
       setCooldownWeeksInput("5");
       setCooldownWeeks(5);
       setCooldownError(null);
     }
   };
 
+  // 🆕 NEW HANDLER: Dip Threshold
+  const handleDipThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDipThresholdInput(value);
+
+    if (value === "") {
+      setDipThresholdError(null);
+      return;
+    }
+
+    // Allow decimals for threshold? Yes.
+    const numValue = Number(value);
+    const error = validateDipThreshold(numValue);
+    setDipThresholdError(error);
+
+    if (!error) {
+      setDipThreshold(numValue);
+    }
+  };
+
+  const handleDipThresholdBlur = () => {
+    if (dipThresholdInput === "") {
+      setDipThresholdInput("20");
+      setDipThreshold(20);
+      setDipThresholdError(null);
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    // Validate cooldown before submit if NRB pattern
+    
+    // Validate inputs if NRB pattern
     if (pattern === "nrb") {
-      const error = validateCooldown(cooldownWeeks);
-      if (error) {
-        setCooldownError(error);
+      const cError = validateCooldown(cooldownWeeks);
+      const dError = validateDipThreshold(dipThreshold); // 🆕 Check Dip Error
+
+      if (cError) {
+        setCooldownError(cError);
+        return;
+      }
+      if (dError) {
+        setDipThresholdError(dError);
         return;
       }
     }
@@ -82,9 +130,10 @@ const PatternForm: FC<PatternFormProps> = ({
       parameter: parameter || null,
     };
 
-    // Only include cooldownWeeks for NRB pattern
+    // Include NRB specific fields
     if (pattern === "nrb") {
       submitData.cooldownWeeks = cooldownWeeks;
+      submitData.dipThreshold = dipThreshold; // 🆕 Send to Parent
     }
 
     onAnalyze(submitData);
@@ -128,32 +177,54 @@ const PatternForm: FC<PatternFormProps> = ({
               className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none"
             />
           </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2 text-slate-300">
-              Cooldown Period (weeks)
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              step="1"
-              value={cooldownWeeksInput}
-              onChange={handleCooldownChange}
-              onBlur={handleCooldownBlur}
-              placeholder="5" // 🆕 CHANGED placeholder
-              className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
-                cooldownError
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-slate-600"
-              }`}
-            />
-            {cooldownError && (
-              <p className="mt-1 text-sm text-red-400">{cooldownError}</p>
-            )}
-            <p className="mt-1 text-xs text-slate-400">
-              Minimum weeks between NRB signals
-            </p>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* Cooldown Input */}
+            <div>
+                <label className="block text-sm font-medium mb-2 text-slate-300">
+                Cooldown (wks)
+                </label>
+                <input
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                value={cooldownWeeksInput}
+                onChange={handleCooldownChange}
+                onBlur={handleCooldownBlur}
+                placeholder="5"
+                className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
+                    cooldownError ? "border-red-500 focus:ring-red-500" : "border-slate-600"
+                }`}
+                />
+                {cooldownError && (
+                <p className="mt-1 text-[10px] text-red-400 leading-tight">{cooldownError}</p>
+                )}
+            </div>
+
+            {/* 🆕 Dip Threshold Input */}
+            <div>
+                <label className="block text-sm font-medium mb-2 text-slate-300">
+                NRB Rate (%)
+                </label>
+                <input
+                type="number"
+                min="0"
+                max="100"
+                value={dipThresholdInput}
+                onChange={handleDipThresholdChange}
+                onBlur={handleDipThresholdBlur}
+                placeholder="20"
+                className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
+                    dipThresholdError ? "border-red-500 focus:ring-red-500" : "border-slate-600"
+                }`}
+                />
+                {dipThresholdError && (
+                <p className="mt-1 text-[10px] text-red-400 leading-tight">{dipThresholdError}</p>
+                )}
+            </div>
           </div>
+          
         </>
       )}
 

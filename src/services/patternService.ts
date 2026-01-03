@@ -64,7 +64,6 @@ export interface ConsolidationZone {
   success_rate_12m: number | null;
 }
 
-// 🆕 NEW INTERFACE for "Near Touch" zones
 export interface NearTouch {
   start_time: number;
   end_time: number;
@@ -74,7 +73,6 @@ export interface NearTouch {
   count: number;
 }
 
-// 🆕 UPDATED INTERFACE
 export interface NrbGroup {
   group_id: number;
   group_level: number;
@@ -88,7 +86,7 @@ export interface NrbGroup {
   success_rate_6m?: number | null;
   success_rate_12m?: number | null;
   
-  near_touches?: NearTouch[] | null; // 🆕 Added field
+  near_touches?: NearTouch[] | null;
 }
 
 export interface PatternScanResponse {
@@ -113,6 +111,7 @@ export interface Week52HighResponse {
   cutoff_date: string;
 }
 
+// 🟢 UPDATED FUNCTION SIGNATURE
 export const fetchPatternScanData = async (
   scrip: string,
   pattern: string,
@@ -120,7 +119,8 @@ export const fetchPatternScanData = async (
   successRate: number | null,
   weeks?: number,
   series?: string | null,
-  cooldownWeeks?: number
+  cooldownWeeks?: number,
+  dipThreshold?: number // 🆕 Added parameter
 ): Promise<PatternScanResponse> => {
   try {
     const params: any = {
@@ -132,6 +132,10 @@ export const fetchPatternScanData = async (
     if (nrbLookback !== null) params.nrb_lookback = nrbLookback;
     if (pattern === "Narrow Range Break" && weeks != null) params.weeks = weeks;
     if (pattern === "Narrow Range Break" && cooldownWeeks != null) params.cooldown_weeks = cooldownWeeks;
+    
+    // 🆕 PASS DIP THRESHOLD
+    if (pattern === "Narrow Range Break" && dipThreshold != null) params.dip_threshold = dipThreshold;
+    
     if (series) params.series = series;
 
     const response = await axios.get<PatternScanResponse>(
@@ -171,7 +175,6 @@ export const fetchPatternScanData = async (
       })
     );
 
-    // 🆕 UPDATED MAPPING Logic
     const nrbGroups: NrbGroup[] = ((response.data as any).nrb_groups || []).map((g: any) => ({
       group_id: g.group_id,
       group_level: g.group_level,
@@ -185,7 +188,6 @@ export const fetchPatternScanData = async (
       success_rate_6m: g.success_rate_6m,
       success_rate_12m: g.success_rate_12m,
 
-      // Map near touches
       near_touches: (g.near_touches || []).map((t: any) => ({
         start_time: t.start_time,
         end_time: t.end_time,

@@ -8,6 +8,7 @@ import {
 } from "./services/patternService";
 import { useMarketStore } from "./store/marketStore";
 import { ScrollArea } from "./components/ui/scroll-area";
+import { Download } from "lucide-react";
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +60,7 @@ function App() {
     }
 
     try {
+      // 🆕 UPDATED: Pass data.dipThreshold to the service
       const response = await fetchPatternScanData(
         currentSymbol,
         data.pattern === "nrb" ? "Narrow Range Break" : "Bowl",
@@ -66,7 +68,8 @@ function App() {
         0, 
         data.weeks,
         data.parameter, 
-        data.cooldownWeeks 
+        data.cooldownWeeks,
+        data.dipThreshold // <--- Passed here
       );
 
       console.log("Normalized Pattern Data:", response);
@@ -119,20 +122,70 @@ function App() {
     return <span className={color}>{sign}{rate.toFixed(1)}%</span>;
   };
 
-  // ---------------------------------------------------------
-  // 🟢 LOGIC UPDATE: Removed Parallel Line Filtering
-  // We now simply use all groups returned by the backend.
-  // ---------------------------------------------------------
-  
+  // Logic: All groups (No filtering)
   const allGroups = nrbGroups || [];
 
-  // 1. Historical Levels (Cyan/Blue)
-  // Logic: Duration > 24 weeks
+  // 1. Historical Levels (Cyan/Blue) -> Duration > 24 weeks
   const nrbSingles = allGroups.filter(g => (g.group_duration_weeks || 0) > 24);
 
-  // 2. Clusters (Yellow)
-  // Logic: Count > 1
+  // 2. Clusters (Yellow) -> Count > 1
   const nrbClusters = allGroups.filter(g => (g.group_nrb_count || 0) > 1);
+
+  // Download Report Logic
+  const handleDownloadReport = () => {
+    if (!nrbGroups || nrbGroups.length === 0) return;
+
+    const dataRows = [
+        ...nrbSingles.map(g => ({ ...g, type: "Historical (Blue)" })),
+        ...nrbClusters.map(g => ({ ...g, type: "Cluster (Yellow)" }))
+    ];
+
+    const uniqueRows = Array.from(new Map(dataRows.map(item => [item.group_id, item])).values());
+
+    const csvHeaders = [
+        "Stock", "Type", "Level", "NRB Count", "Start Date", "End Date", 
+        "Duration (wks)", "3M %", "6M %", "12M %", "98-100% Att", "95-98% Att", "90-95% Att"
+    ];
+
+    const csvContent = [
+        csvHeaders.join(","),
+        ...uniqueRows.map(row => {
+            let c98 = 0, c95 = 0, c90 = 0;
+            if (row.near_touches) {
+                row.near_touches.forEach((t: any) => {
+                    if (t.min_diff_pct < 2.0) c98++;
+                    else if (t.min_diff_pct < 5.0) c95++;
+                    else if (t.min_diff_pct < 10.0) c90++;
+                });
+            }
+
+            return [
+                currentSymbol,
+                row.type,
+                row.group_level?.toFixed(4) || "0",
+                row.group_nrb_count || "0",
+                formatDate(row.group_start_time),
+                formatDate(row.group_end_time),
+                row.group_duration_weeks?.toFixed(1) || "0",
+                row.success_rate_3m !== null ? row.success_rate_3m : "-",
+                row.success_rate_6m !== null ? row.success_rate_6m : "-",
+                row.success_rate_12m !== null ? row.success_rate_12m : "-",
+                c98,
+                c95,
+                c90
+            ].join(",");
+        })
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${currentSymbol}_NRB_Report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const renderGroupCard = (group: any, isSelected: boolean) => {
     let countAbove98 = 0;
@@ -221,6 +274,15 @@ function App() {
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-accent">
           Pattern Recognition Tool
         </h1>
+        {hasAnalyzed && (
+            <button 
+                onClick={handleDownloadReport}
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-md text-sm border border-slate-600 transition-colors"
+            >
+                <Download className="w-4 h-4" />
+                Download Report
+            </button>
+        )}
       </header>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -315,6 +377,7 @@ function App() {
               </div>
             )}
 
+            {/* Consolidation Zones */}
             {lastPattern === "nrb" && showConsolidationZones && hasAnalyzed && (
               <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                 {(() => {

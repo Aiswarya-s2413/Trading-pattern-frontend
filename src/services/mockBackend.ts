@@ -3,6 +3,7 @@ export interface PatternData {
   weeks: number;
   parameter: string | null;
   cooldownWeeks?: number;
+  dipThreshold?: number; // 🆕 Added field to fix red lines
 }
 
 export interface AnalysisResult {

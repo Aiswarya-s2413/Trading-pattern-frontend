@@ -274,15 +274,9 @@ function App() {
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-accent">
           Pattern Recognition Tool
         </h1>
-        {hasAnalyzed && (
-            <button 
-                onClick={handleDownloadReport}
-                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-md text-sm border border-slate-600 transition-colors"
-            >
-                <Download className="w-4 h-4" />
-                Download Report
-            </button>
-        )}
+        
+            
+        
       </header>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -440,7 +434,7 @@ function App() {
       </main>
 
       <div className="fixed bottom-2 right-2 text-slate-400 text-sm">
-        v0.0.7
+        v0.0.8
       </div>
     </div>
   );

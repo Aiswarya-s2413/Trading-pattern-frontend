@@ -8,7 +8,7 @@ import {
 } from "./services/patternService";
 import { useMarketStore } from "./store/marketStore";
 import { ScrollArea } from "./components/ui/scroll-area";
-import { Download } from "lucide-react";
+
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);

@@ -1,18 +1,21 @@
 import { useState, type FC, type FormEvent } from "react";
 import type { PatternData } from "../services/mockBackend";
+import { getAiDipRecommendation } from "../services/patternService";
 
 interface PatternFormProps {
   onAnalyze: (data: PatternData) => void;
   isLoading: boolean;
   showConsolidationZones: boolean;
   onToggleConsolidationZones: (show: boolean) => void;
+  selectedSymbol?: string; 
 }
 
 const PatternForm: FC<PatternFormProps> = ({ 
   onAnalyze, 
   isLoading,
   showConsolidationZones,
-  onToggleConsolidationZones
+  onToggleConsolidationZones,
+  selectedSymbol
 }) => {
   const [pattern, setPattern] = useState("nrb");
   const [weeks, setWeeks] = useState(52);
@@ -23,23 +26,20 @@ const PatternForm: FC<PatternFormProps> = ({
   const [cooldownWeeksInput, setCooldownWeeksInput] = useState("5");
   const [cooldownError, setCooldownError] = useState<string | null>(null);
 
-  // 🆕 NEW STATE: Dip Threshold (Default 20%)
+  // Dip Threshold State
   const [dipThreshold, setDipThreshold] = useState(20);
   const [dipThresholdInput, setDipThresholdInput] = useState("20");
   const [dipThresholdError, setDipThresholdError] = useState<string | null>(null);
 
+  // AI Loading State (No feedback text needed anymore)
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
   // --- Validation Logic ---
 
   const validateCooldown = (value: number): string | null => {
-    if (isNaN(value) || !Number.isInteger(value)) {
-      return "Please enter a valid number";
-    }
-    if (value < 1) {
-      return "Cooldown must be at least 1 week";
-    }
-    if (value > 100) {
-      return "Cooldown cannot exceed 100 weeks";
-    }
+    if (isNaN(value) || !Number.isInteger(value)) return "Please enter a valid number";
+    if (value < 1) return "Cooldown must be at least 1 week";
+    if (value > 100) return "Cooldown cannot exceed 100 weeks";
     return null;
   };
 
@@ -55,19 +55,14 @@ const PatternForm: FC<PatternFormProps> = ({
   const handleCooldownChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setCooldownWeeksInput(value);
-
     if (value === "") {
       setCooldownError(null);
       return;
     }
-
     const numValue = Math.floor(Number(value));
     const error = validateCooldown(numValue);
     setCooldownError(error);
-
-    if (!error) {
-      setCooldownWeeks(numValue);
-    }
+    if (!error) setCooldownWeeks(numValue);
   };
 
   const handleCooldownBlur = () => {
@@ -78,24 +73,17 @@ const PatternForm: FC<PatternFormProps> = ({
     }
   };
 
-  // 🆕 NEW HANDLER: Dip Threshold
   const handleDipThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setDipThresholdInput(value);
-
     if (value === "") {
       setDipThresholdError(null);
       return;
     }
-
-    // Allow decimals for threshold? Yes.
     const numValue = Number(value);
     const error = validateDipThreshold(numValue);
     setDipThresholdError(error);
-
-    if (!error) {
-      setDipThreshold(numValue);
-    }
+    if (!error) setDipThreshold(numValue);
   };
 
   const handleDipThresholdBlur = () => {
@@ -106,22 +94,40 @@ const PatternForm: FC<PatternFormProps> = ({
     }
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  // 🪄 The Silent Magic Handler
+  const handleAutoDetectDip = async (e: React.MouseEvent) => {
     e.preventDefault();
     
-    // Validate inputs if NRB pattern
+    if (!selectedSymbol) return;
+
+    setIsAiLoading(true);
+
+    try {
+      const data = await getAiDipRecommendation(selectedSymbol);
+      
+      if (data && data.recommended_dip_percentage) {
+        // Just update the value silently
+        const aiValue = data.recommended_dip_percentage;
+        setDipThreshold(aiValue);
+        setDipThresholdInput(String(aiValue));
+        setDipThresholdError(null);
+        // Reasoning is ignored as requested
+      }
+    } catch (error) {
+      console.error(error);
+      // Fail silently or just log to console, no UI error needed
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
     if (pattern === "nrb") {
       const cError = validateCooldown(cooldownWeeks);
-      const dError = validateDipThreshold(dipThreshold); // 🆕 Check Dip Error
-
-      if (cError) {
-        setCooldownError(cError);
-        return;
-      }
-      if (dError) {
-        setDipThresholdError(dError);
-        return;
-      }
+      const dError = validateDipThreshold(dipThreshold);
+      if (cError) { setCooldownError(cError); return; }
+      if (dError) { setDipThresholdError(dError); return; }
     }
 
     const submitData: PatternData = {
@@ -130,10 +136,9 @@ const PatternForm: FC<PatternFormProps> = ({
       parameter: parameter || null,
     };
 
-    // Include NRB specific fields
     if (pattern === "nrb") {
       submitData.cooldownWeeks = cooldownWeeks;
-      submitData.dipThreshold = dipThreshold; // 🆕 Send to Parent
+      submitData.dipThreshold = dipThreshold;
     }
 
     onAnalyze(submitData);
@@ -179,7 +184,6 @@ const PatternForm: FC<PatternFormProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
-            {/* Cooldown Input */}
             <div>
                 <label className="block text-sm font-medium mb-2 text-slate-300">
                 Cooldown (wks)
@@ -202,29 +206,47 @@ const PatternForm: FC<PatternFormProps> = ({
                 )}
             </div>
 
-            {/* 🆕 Dip Threshold Input */}
             <div>
+                {/* 🗑️ REMOVED: Symbol Badge from Label */}
                 <label className="block text-sm font-medium mb-2 text-slate-300">
-                NRB Rate (%)
+                  NRB Rate (%)
                 </label>
-                <input
-                type="number"
-                min="0"
-                max="100"
-                value={dipThresholdInput}
-                onChange={handleDipThresholdChange}
-                onBlur={handleDipThresholdBlur}
-                placeholder="20"
-                className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
-                    dipThresholdError ? "border-red-500 focus:ring-red-500" : "border-slate-600"
-                }`}
-                />
+                
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={dipThresholdInput}
+                    onChange={handleDipThresholdChange}
+                    onBlur={handleDipThresholdBlur}
+                    placeholder="20"
+                    className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
+                        dipThresholdError ? "border-red-500 focus:ring-red-500" : "border-slate-600"
+                    }`}
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={handleAutoDetectDip}
+                    disabled={isAiLoading || !selectedSymbol}
+                    className={`px-3 rounded border border-slate-600 flex items-center justify-center transition-colors ${
+                      isAiLoading || !selectedSymbol
+                      ? "bg-slate-700 text-slate-500 cursor-not-allowed" 
+                      : "bg-slate-700 hover:bg-slate-600 text-brand-primary hover:text-white"
+                    }`}
+                    title="AI Auto-Detect"
+                  >
+                    {isAiLoading ? "..." : "Ask AI"}
+                  </button>
+                </div>
+
+                {/* 🗑️ REMOVED: AI Feedback Text */}
                 {dipThresholdError && (
-                <p className="mt-1 text-[10px] text-red-400 leading-tight">{dipThresholdError}</p>
+                  <p className="mt-1 text-[10px] text-red-400 leading-tight">{dipThresholdError}</p>
                 )}
             </div>
           </div>
-          
         </>
       )}
 

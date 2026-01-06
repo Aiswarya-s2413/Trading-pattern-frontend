@@ -131,62 +131,7 @@ function App() {
   // 2. Clusters (Yellow) -> Count > 1
   const nrbClusters = allGroups.filter(g => (g.group_nrb_count || 0) > 1);
 
-  // Download Report Logic
-  const handleDownloadReport = () => {
-    if (!nrbGroups || nrbGroups.length === 0) return;
-
-    const dataRows = [
-        ...nrbSingles.map(g => ({ ...g, type: "Historical (Blue)" })),
-        ...nrbClusters.map(g => ({ ...g, type: "Cluster (Yellow)" }))
-    ];
-
-    const uniqueRows = Array.from(new Map(dataRows.map(item => [item.group_id, item])).values());
-
-    const csvHeaders = [
-        "Stock", "Type", "Level", "NRB Count", "Start Date", "End Date", 
-        "Duration (wks)", "3M %", "6M %", "12M %", "98-100% Att", "95-98% Att", "90-95% Att"
-    ];
-
-    const csvContent = [
-        csvHeaders.join(","),
-        ...uniqueRows.map(row => {
-            let c98 = 0, c95 = 0, c90 = 0;
-            if (row.near_touches) {
-                row.near_touches.forEach((t: any) => {
-                    if (t.min_diff_pct < 2.0) c98++;
-                    else if (t.min_diff_pct < 5.0) c95++;
-                    else if (t.min_diff_pct < 10.0) c90++;
-                });
-            }
-
-            return [
-                currentSymbol,
-                row.type,
-                row.group_level?.toFixed(4) || "0",
-                row.group_nrb_count || "0",
-                formatDate(row.group_start_time),
-                formatDate(row.group_end_time),
-                row.group_duration_weeks?.toFixed(1) || "0",
-                row.success_rate_3m !== null ? row.success_rate_3m : "-",
-                row.success_rate_6m !== null ? row.success_rate_6m : "-",
-                row.success_rate_12m !== null ? row.success_rate_12m : "-",
-                c98,
-                c95,
-                c90
-            ].join(",");
-        })
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${currentSymbol}_NRB_Report.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
+  
   const renderGroupCard = (group: any, isSelected: boolean) => {
     let countAbove98 = 0;
     let count95to98 = 0;
@@ -296,6 +241,7 @@ function App() {
               isLoading={isLoading}
               showConsolidationZones={showConsolidationZones}
               onToggleConsolidationZones={setShowConsolidationZones}
+              selectedSymbol={currentSymbol}
             />
 
             {lastPattern === "nrb" && hasAnalyzed && (

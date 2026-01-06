@@ -257,3 +257,21 @@ export const fetch52WeekHigh = async (scrip: string): Promise<Week52HighResponse
     throw error;
   }
 };
+
+export interface AiDipResponse {
+  recommended_dip_percentage: number;
+  risk_level: string;
+  reasoning: string;
+}
+
+// 🆕 NEW FUNCTION: Fetch AI Recommendation
+export const getAiDipRecommendation = async (symbol: string): Promise<AiDipResponse> => {
+  try {
+    // Uses the existing API_BASE_URL defined at the top of this file
+    const response = await axios.get<AiDipResponse>(`${API_BASE_URL}/analyze-dip/${symbol}/`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching AI recommendation:", error);
+    throw error;
+  }
+};

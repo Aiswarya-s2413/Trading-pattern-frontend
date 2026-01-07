@@ -380,7 +380,7 @@ function App() {
       </main>
 
       <div className="fixed bottom-2 right-2 text-slate-400 text-sm">
-        v0.0.8
+        v0.0.9
       </div>
     </div>
   );

@@ -635,7 +635,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
               });
           }
 
-          // --- B. The Whipsaw Markers (Yellow/Orange/Red) ---
+          // --- B. The Whipsaw Markers (STAR SYMBOLS) ---
+          // 🟢 CHANGED: Using Circle Shape + "★" Text
           if (marker.whipsaws && Array.isArray(marker.whipsaws)) {
               marker.whipsaws.forEach((w: any) => {
                   let wColor = "#FFD600"; // Level 1: Yellow
@@ -644,11 +645,10 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
                   generatedMarkers.push({
                       time: w.time as Time,
-                      position: "aboveBar", // Always above candle
-                      color: wColor,
-                      shape: "arrowDown",   // Always pointing down
-                      text: "",             // No text to keep it clean
-                      size: 1,              // Standard size
+                      position: "aboveBar", 
+                      color: wColor,   // 🟢 Generic circle shape
+                      shape: "circle",   // 🟢 Generic circle shape
+                               // 🟢 Star character on top
                   });
               });
           }

@@ -579,9 +579,14 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         });
       }
       
-      // Markers Logic
+      // =======================================================================
+      // 🟢 UNIFIED MARKER LOGIC (NRB + Whipsaws processed together)
+      // =======================================================================
+      
       const zoneColors = ['#2196F3'];
       const zoneColorMap = new Map<number, string>();
+      
+      // 1. Pre-calculate Zone Colors
       markers.forEach((m: any) => {
         if (m.consolidation_zone_id != null && !zoneColorMap.has(m.consolidation_zone_id)) {
           const idx = Math.abs(Number(m.consolidation_zone_id)) % zoneColors.length;
@@ -589,34 +594,73 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         }
       });
 
-      const otherMarkers: SeriesMarker<Time>[] = markers
-        .filter((m: any) => {
-          const isBowlMarker = (isBowlPattern && m.pattern_id != null) || m.text?.toUpperCase().includes("BOWL");
-          return !isBowlMarker;
-        })
-        .map((marker: any) => {
-          let color = marker.color || "#2196F3";
-          let shape: SeriesMarker<Time>["shape"] = (marker.shape as any) || "circle";
-          const isNRBMarker = marker.direction === "Bullish Break" || marker.direction === "Bearish Break";
+      // 2. Generate ALL Markers in one pass (flatMap)
+      const allMarkers = markers.flatMap((marker: any) => {
+          const generatedMarkers: SeriesMarker<Time>[] = [];
 
-          if (isNRBMarker) {
-            const zoneId = marker.consolidation_zone_id as number | null;
-            const baseColor = (zoneId != null ? zoneColorMap.get(zoneId) || color : color) || "#2196F3";
-            if (selectedNrbGroupId != null && zoneId != null && zoneId === selectedNrbGroupId) {
-              color = baseColor;
-            } else if (selectedNrbGroupId != null) {
-              color = "rgba(148, 163, 184, 0.6)";
-            } else {
-              color = baseColor;
-            }
-            if (marker.direction === "Bullish Break") shape = "arrowUp";
-            else if (marker.direction === "Bearish Break") shape = "arrowDown";
-          } else {
-            if (marker.direction === "Bullish Break") { color = "#00E5FF"; shape = "arrowUp"; }
-            else if (marker.direction === "Bearish Break") { color = "#FFD600"; shape = "arrowDown"; }
+          // --- A. The Main NRB Marker (Blue/Green/Red) ---
+          const isBowlMarker = (chartTitle.toLowerCase().includes("bowl") && marker.pattern_id != null) || marker.text?.toUpperCase().includes("BOWL");
+          
+          if (!isBowlMarker) {
+              let color = marker.color || "#2196F3";
+              let shape: SeriesMarker<Time>["shape"] = (marker.shape as any) || "circle";
+              const isNRBMarker = marker.direction === "Bullish Break" || marker.direction === "Bearish Break";
+
+              if (isNRBMarker) {
+                  const zoneId = marker.consolidation_zone_id as number | null;
+                  const baseColor = (zoneId != null ? zoneColorMap.get(zoneId) || color : color) || "#2196F3";
+                  
+                  // Highlight Selection
+                  if (selectedNrbGroupId != null) {
+                      if (zoneId === selectedNrbGroupId) color = baseColor;
+                      else color = "rgba(148, 163, 184, 0.4)"; // Dim others
+                  } else {
+                      color = baseColor;
+                  }
+
+                  if (marker.direction === "Bullish Break") shape = "arrowUp";
+                  else if (marker.direction === "Bearish Break") shape = "arrowDown";
+              } else {
+                  // Fallback for simple breaks
+                  if (marker.direction === "Bullish Break") { color = "#00E5FF"; shape = "arrowUp"; }
+                  else if (marker.direction === "Bearish Break") { color = "#FFD600"; shape = "arrowDown"; }
+              }
+
+              generatedMarkers.push({ 
+                  time: marker.time as Time, 
+                  position: (marker.position || "aboveBar") as any, 
+                  color, 
+                  shape, 
+                  text: isNRBMarker ? "" : marker.text || "" 
+              });
           }
-          return { time: marker.time as Time, position: (marker.position || "aboveBar") as "aboveBar" | "belowBar" | "inBar", color, shape, text: isNRBMarker ? "" : marker.text || "" };
-        });
+
+          // --- B. The Whipsaw Markers (Yellow/Orange/Red) ---
+          if (marker.whipsaws && Array.isArray(marker.whipsaws)) {
+              marker.whipsaws.forEach((w: any) => {
+                  let wColor = "#FFD600"; // Level 1: Yellow
+                  if (w.level === 2) wColor = "#FF6D00"; // Level 2: Orange
+                  if (w.level === 3) wColor = "#D50000"; // Level 3: Red
+
+                  generatedMarkers.push({
+                      time: w.time as Time,
+                      position: "aboveBar", // Always above candle
+                      color: wColor,
+                      shape: "arrowDown",   // Always pointing down
+                      text: "",             // No text to keep it clean
+                      size: 1,              // Standard size
+                  });
+              });
+          }
+
+          return generatedMarkers;
+      });
+
+      // 3. Sort strictly by time (Required by Library)
+      allMarkers.sort((a, b) => Number(a.time) - Number(b.time));
+
+      // 4. Debug to Console
+      console.log(`📊 MARKERS RENDERED: Total=${allMarkers.length}`);
 
       if (week52High != null) {
         const spanData = dataForCalculations.length > 0 ? dataForCalculations : showParameterLine && parameterSeriesData ? parameterSeriesData.map((item) => ({ time: item.time as Time, value: item.value })) : priceData.map((item) => ({ time: item.time as Time, value: item.close }));
@@ -634,8 +678,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         week52HighSeries.applyOptions({ visible: false });
       }
 
-      if (showParameterLine && parameterLineMarkersRef.current) parameterLineMarkersRef.current.setMarkers(otherMarkers);
-      else if (!showParameterLine && candlestickMarkersRef.current) candlestickMarkersRef.current.setMarkers(otherMarkers);
+      if (showParameterLine && parameterLineMarkersRef.current) parameterLineMarkersRef.current.setMarkers(allMarkers);
+      else if (!showParameterLine && candlestickMarkersRef.current) candlestickMarkersRef.current.setMarkers(allMarkers);
 
       chart.timeScale().fitContent();
     } else {

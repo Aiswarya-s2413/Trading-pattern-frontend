@@ -15,6 +15,15 @@ export interface SeriesPoint {
   value: number;
 }
 
+// 🆕 NEW INTERFACE: Whipsaw Event
+export interface WhipsawEvent {
+  level: number;       // 1, 2, or 3
+  time: number;        // Timestamp of the drop
+  price: number;       // Price at the time of drop
+  peak_price: number;  // The peak it fell from
+  drawdown_pct: number;// The exact percentage drop
+}
+
 export interface Marker {
   time: number;
   position: "aboveBar" | "belowBar" | "inBar";
@@ -46,6 +55,8 @@ export interface Marker {
   group_nrb_count?: number | null;
 
   direction?: "Bullish Break" | "Bearish Break" | string;
+  
+  whipsaws?: WhipsawEvent[]; // 🆕 ADDED THIS FIELD
 }
 
 export interface ConsolidationZone {
@@ -229,6 +240,7 @@ export const fetchPatternScanData = async (
         group_end_time: marker.group_end_time ?? null,
         group_nrb_count: marker.group_nrb_count ?? null,
         direction: marker.direction,
+        whipsaws: marker.whipsaws ?? [], // 🆕 KEY FIX: Pass whipsaws through!
       })),
       total_consolidation_duration_weeks: totalConsolidationDurationWeeks,
       series: normalizedSeries,

@@ -9,7 +9,6 @@ import {
 import { useMarketStore } from "./store/marketStore";
 import { ScrollArea } from "./components/ui/scroll-area";
 
-
 function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [week52High, setWeek52High] = useState<number | null | "unavailable">(
@@ -22,15 +21,16 @@ function App() {
   const [selectedNrbLevelId, setSelectedNrbLevelId] = useState<number | null>(
     null
   );
-  
-  const [showConsolidationZones, setShowConsolidationZones] = useState(false);
-  
+
+  const [showConsolidationZones] = useState(false);
+
   const [showSingleLevelNrbs, setShowSingleLevelNrbs] = useState(true);
   const [showNrbClusters, setShowNrbClusters] = useState(false);
 
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
-  const { currentSymbol, setPatternData, consolidationZones, nrbGroups } = useMarketStore();
+  const { currentSymbol, setPatternData, consolidationZones, nrbGroups } =
+    useMarketStore();
 
   useEffect(() => {
     const load52WeekHigh = async () => {
@@ -67,14 +67,14 @@ function App() {
       const response = await fetchPatternScanData(
         currentSymbol,
         data.pattern === "nrb" ? "Narrow Range Break" : "Bowl",
-        null, 
-        0, 
+        null,
+        0,
         data.weeks,
-        data.parameter, 
+        data.parameter,
         data.cooldownWeeks,
         data.dipThreshold,
         formData.whipsawD1, // <--- 🆕 Passed D1
-        formData.whipsawD2  // <--- 🆕 Passed D2
+        formData.whipsawD2 // <--- 🆕 Passed D2
       );
 
       console.log("Normalized Pattern Data:", response);
@@ -84,14 +84,14 @@ function App() {
         response.price_data,
         response.series_data,
         response.series,
-        "#2962FF", 
-        response.series_data_ema5, 
-        response.series_data_ema10, 
-        response.total_consolidation_duration_weeks ?? null, 
+        "#2962FF",
+        response.series_data_ema5,
+        response.series_data_ema10,
+        response.total_consolidation_duration_weeks ?? null,
         response.consolidation_zones ?? null,
-        response.nrb_groups ?? null 
+        response.nrb_groups ?? null
       );
-      
+
       setHasAnalyzed(true);
     } catch (error) {
       console.error("Analysis failed", error);
@@ -124,19 +124,25 @@ function App() {
     if (rate == null) return <span className="text-slate-600">-</span>;
     const color = rate >= 0 ? "text-green-400" : "text-red-400";
     const sign = rate >= 0 ? "+" : "";
-    return <span className={color}>{sign}{rate.toFixed(1)}%</span>;
+    return (
+      <span className={color}>
+        {sign}
+        {rate.toFixed(1)}%
+      </span>
+    );
   };
 
   // Logic: All groups (No filtering)
   const allGroups = nrbGroups || [];
 
   // 1. Historical Levels (Cyan/Blue) -> Duration > 24 weeks
-  const nrbSingles = allGroups.filter(g => (g.group_duration_weeks || 0) > 24);
+  const nrbSingles = allGroups.filter(
+    (g) => (g.group_duration_weeks || 0) > 24
+  );
 
   // 2. Clusters (Yellow) -> Count > 1
-  const nrbClusters = allGroups.filter(g => (g.group_nrb_count || 0) > 1);
+  const nrbClusters = allGroups.filter((g) => (g.group_nrb_count || 0) > 1);
 
-  
   const renderGroupCard = (group: any, isSelected: boolean) => {
     let countAbove98 = 0;
     let count95to98 = 0;
@@ -144,7 +150,7 @@ function App() {
 
     if (group.near_touches) {
       group.near_touches.forEach((t: any) => {
-        const diff = t.min_diff_pct; 
+        const diff = t.min_diff_pct;
         if (diff < 2.0) countAbove98 += 1;
         else if (diff < 5.0) count95to98 += 1;
         else if (diff < 10.0) count90to95 += 1;
@@ -157,7 +163,9 @@ function App() {
       <button
         key={group.group_id}
         type="button"
-        onClick={() => setSelectedNrbLevelId(isSelected ? null : group.group_id)}
+        onClick={() =>
+          setSelectedNrbLevelId(isSelected ? null : group.group_id)
+        }
         className={`w-full text-left px-3 py-2 rounded border text-sm transition-colors ${
           isSelected
             ? "border-yellow-500 bg-slate-800 text-white"
@@ -165,7 +173,11 @@ function App() {
         }`}
       >
         <div className="flex items-center justify-between mb-1">
-          <div className={`font-medium ${isLevel ? "text-cyan-400" : "text-yellow-400"}`}>
+          <div
+            className={`font-medium ${
+              isLevel ? "text-cyan-400" : "text-yellow-400"
+            }`}
+          >
             Level: {formatLevel(group.group_level)}
           </div>
           {group.group_duration_weeks != null && (
@@ -174,22 +186,37 @@ function App() {
             </div>
           )}
         </div>
-        
+
         <div className="flex justify-between text-xs text-slate-400 mb-2">
-            <span>{formatDate(group.group_start_time)} - {formatDate(group.group_end_time)}</span>
-            <span>{group.group_nrb_count} NRB{group.group_nrb_count > 1 ? 's' : ''}</span>
+          <span>
+            {formatDate(group.group_start_time)} -{" "}
+            {formatDate(group.group_end_time)}
+          </span>
+          <span>
+            {group.group_nrb_count} NRB{group.group_nrb_count > 1 ? "s" : ""}
+          </span>
         </div>
 
         <div className="flex gap-2 mb-2 text-[10px] text-slate-300 flex-wrap">
-            <span className="bg-green-900/50 px-1.5 py-0.5 rounded border border-green-800/50" title="Attempts >98% Close">
-              &gt;98%: <span className="text-white font-bold">{countAbove98}</span>
-            </span>
-            <span className="bg-blue-900/50 px-1.5 py-0.5 rounded border border-blue-800/50" title="Attempts 95% - 98% Close">
-              95-98%: <span className="text-white font-bold">{count95to98}</span>
-            </span>
-            <span className="bg-orange-900/50 px-1.5 py-0.5 rounded border border-orange-800/50" title="Attempts 90% - 95% Close">
-              90-95%: <span className="text-white font-bold">{count90to95}</span>
-            </span>
+          <span
+            className="bg-green-900/50 px-1.5 py-0.5 rounded border border-green-800/50"
+            title="Attempts >98% Close"
+          >
+            &gt;98%:{" "}
+            <span className="text-white font-bold">{countAbove98}</span>
+          </span>
+          <span
+            className="bg-blue-900/50 px-1.5 py-0.5 rounded border border-blue-800/50"
+            title="Attempts 95% - 98% Close"
+          >
+            95-98%: <span className="text-white font-bold">{count95to98}</span>
+          </span>
+          <span
+            className="bg-orange-900/50 px-1.5 py-0.5 rounded border border-orange-800/50"
+            title="Attempts 90% - 95% Close"
+          >
+            90-95%: <span className="text-white font-bold">{count90to95}</span>
+          </span>
         </div>
 
         <div className="pt-2 border-t border-slate-700/50">
@@ -224,48 +251,43 @@ function App() {
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-accent">
           Pattern Recognition Tool
         </h1>
-        
-            
-        
       </header>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 h-[85vh]">
-          <ChartContainer 
-            selectedNrbGroupId={selectedNrbGroupId} 
+          <ChartContainer
+            selectedNrbGroupId={selectedNrbGroupId}
             showConsolidationZones={showConsolidationZones}
             showSingleLevelNrbs={showSingleLevelNrbs}
-            showNrbClusters={showNrbClusters} 
+            showNrbClusters={showNrbClusters}
           />
         </div>
 
         <ScrollArea className="h-full lg:h-[85vh]">
           <div className="flex flex-col gap-6">
-            <PatternForm 
-              onAnalyze={handleAnalyze} 
-              isLoading={isLoading}
-              showConsolidationZones={showConsolidationZones}
-              onToggleConsolidationZones={setShowConsolidationZones}
-              selectedSymbol={currentSymbol}
-            />
+            <PatternForm onAnalyze={handleAnalyze} isLoading={isLoading} />
 
             {lastPattern === "nrb" && hasAnalyzed && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
-                  <span className="text-sm text-slate-300 font-medium">Show NRB + Zones</span>
-                  <input 
-                    type="checkbox" 
-                    checked={showSingleLevelNrbs} 
+                  <span className="text-sm text-slate-300 font-medium">
+                    Show NRB + Zones
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={showSingleLevelNrbs}
                     onChange={(e) => setShowSingleLevelNrbs(e.target.checked)}
                     className="w-4 h-4 text-cyan-500 bg-slate-800 border-slate-600 rounded focus:ring-cyan-500 focus:ring-1"
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
-                  <span className="text-sm text-slate-300 font-medium">Show NRB Levels</span>
-                  <input 
-                    type="checkbox" 
-                    checked={showNrbClusters} 
+                  <span className="text-sm text-slate-300 font-medium">
+                    Show NRB Levels
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={showNrbClusters}
                     onChange={(e) => setShowNrbClusters(e.target.checked)}
                     className="w-4 h-4 text-yellow-500 bg-slate-800 border-slate-600 rounded focus:ring-yellow-500 focus:ring-1"
                   />
@@ -289,38 +311,56 @@ function App() {
             </div>
 
             {/* Clusters (Yellow) */}
-            {lastPattern === "nrb" && hasAnalyzed && showNrbClusters && nrbClusters.length > 0 && (
-              <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
-                <div className="mb-3">
-                  <div className="text-slate-400 text-sm">
-                    Same Level NRB Groups ({currentSymbol})
+            {lastPattern === "nrb" &&
+              hasAnalyzed &&
+              showNrbClusters &&
+              nrbClusters.length > 0 && (
+                <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
+                  <div className="mb-3">
+                    <div className="text-slate-400 text-sm">
+                      Same Level NRB Groups ({currentSymbol})
+                    </div>
+                    <div className="text-lg font-semibold text-white">
+                      {nrbClusters.length} Level
+                      {nrbClusters.length === 1 ? "" : "s"} found
+                    </div>
                   </div>
-                  <div className="text-lg font-semibold text-white">
-                    {nrbClusters.length} Level{nrbClusters.length === 1 ? "" : "s"} found
+                  <div className="space-y-2">
+                    {nrbClusters.map((group) =>
+                      renderGroupCard(
+                        group,
+                        selectedNrbLevelId === group.group_id
+                      )
+                    )}
                   </div>
                 </div>
-                <div className="space-y-2">
-                  {nrbClusters.map((group) => renderGroupCard(group, selectedNrbLevelId === group.group_id))}
-                </div>
-              </div>
-            )}
+              )}
 
             {/* Historical (Blue) */}
-            {lastPattern === "nrb" && hasAnalyzed && showSingleLevelNrbs && nrbSingles.length > 0 && (
-              <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
-                <div className="mb-3">
-                  <div className="text-slate-400 text-sm">
-                   NRB + Zones ({currentSymbol})
+            {lastPattern === "nrb" &&
+              hasAnalyzed &&
+              showSingleLevelNrbs &&
+              nrbSingles.length > 0 && (
+                <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
+                  <div className="mb-3">
+                    <div className="text-slate-400 text-sm">
+                      NRB + Zones ({currentSymbol})
+                    </div>
+                    <div className="text-lg font-semibold text-cyan-400">
+                      {nrbSingles.length} Level
+                      {nrbSingles.length === 1 ? "" : "s"} found
+                    </div>
                   </div>
-                  <div className="text-lg font-semibold text-cyan-400">
-                    {nrbSingles.length} Level{nrbSingles.length === 1 ? "" : "s"} found
+                  <div className="space-y-2">
+                    {nrbSingles.map((group) =>
+                      renderGroupCard(
+                        group,
+                        selectedNrbLevelId === group.group_id
+                      )
+                    )}
                   </div>
                 </div>
-                <div className="space-y-2">
-                  {nrbSingles.map((group) => renderGroupCard(group, selectedNrbLevelId === group.group_id))}
-                </div>
-              </div>
-            )}
+              )}
 
             {/* Consolidation Zones */}
             {lastPattern === "nrb" && showConsolidationZones && hasAnalyzed && (
@@ -339,15 +379,26 @@ function App() {
                       successRate12m: z.success_rate_12m,
                       nrbCount: z.num_nrbs,
                     }))
-                    .sort((a, b) => (b.durationWeeks ?? 0) - (a.durationWeeks ?? 0));
+                    .sort(
+                      (a, b) => (b.durationWeeks ?? 0) - (a.durationWeeks ?? 0)
+                    );
 
-                  if (zoneInfoList.length === 0) return <div className="text-slate-500 text-sm">No consolidation zones.</div>;
+                  if (zoneInfoList.length === 0)
+                    return (
+                      <div className="text-slate-500 text-sm">
+                        No consolidation zones.
+                      </div>
+                    );
 
                   return (
                     <>
                       <div className="mb-3">
-                        <div className="text-slate-400 text-sm">Consolidation Zones</div>
-                        <div className="text-lg font-semibold text-white">{zoneInfoList.length} Zones</div>
+                        <div className="text-slate-400 text-sm">
+                          Consolidation Zones
+                        </div>
+                        <div className="text-lg font-semibold text-white">
+                          {zoneInfoList.length} Zones
+                        </div>
                       </div>
                       <div className="space-y-2">
                         {zoneInfoList.map((zone, index) => {
@@ -356,20 +407,50 @@ function App() {
                             <button
                               key={zone.id}
                               type="button"
-                              onClick={() => setSelectedNrbGroupId(isSelected ? null : zone.id)}
+                              onClick={() =>
+                                setSelectedNrbGroupId(
+                                  isSelected ? null : zone.id
+                                )
+                              }
                               className={`w-full text-left px-3 py-2 rounded border text-sm transition-colors ${
-                                isSelected ? "border-brand-primary bg-slate-800 text-white" : "border-slate-700 bg-slate-900 text-slate-200"
+                                isSelected
+                                  ? "border-brand-primary bg-slate-800 text-white"
+                                  : "border-slate-700 bg-slate-900 text-slate-200"
                               }`}
                             >
                               <div className="flex justify-between">
-                                <div className="font-medium">Zone {index + 1}</div>
-                                {zone.durationWeeks && <div className="text-brand-accent">{formatWeeks(zone.durationWeeks)} wks</div>}
+                                <div className="font-medium">
+                                  Zone {index + 1}
+                                </div>
+                                {zone.durationWeeks && (
+                                  <div className="text-brand-accent">
+                                    {formatWeeks(zone.durationWeeks)} wks
+                                  </div>
+                                )}
                               </div>
-                              <div className="mt-1 text-xs text-slate-400">{formatDate(zone.startTime)} - {formatDate(zone.endTime)}</div>
+                              <div className="mt-1 text-xs text-slate-400">
+                                {formatDate(zone.startTime)} -{" "}
+                                {formatDate(zone.endTime)}
+                              </div>
                               <div className="mt-2 pt-2 border-t border-slate-700 grid grid-cols-3 gap-2 text-xs">
-                                <div><div className="text-slate-500">3 Mon</div><div>{formatSuccessRate(zone.successRate3m)}</div></div>
-                                <div><div className="text-slate-500">6 Mon</div><div>{formatSuccessRate(zone.successRate6m)}</div></div>
-                                <div><div className="text-slate-500">12 Mon</div><div>{formatSuccessRate(zone.successRate12m)}</div></div>
+                                <div>
+                                  <div className="text-slate-500">3 Mon</div>
+                                  <div>
+                                    {formatSuccessRate(zone.successRate3m)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-500">6 Mon</div>
+                                  <div>
+                                    {formatSuccessRate(zone.successRate6m)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-500">12 Mon</div>
+                                  <div>
+                                    {formatSuccessRate(zone.successRate12m)}
+                                  </div>
+                                </div>
                               </div>
                             </button>
                           );

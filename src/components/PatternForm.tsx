@@ -1,58 +1,39 @@
 import { useState, type FC, type FormEvent } from "react";
 import type { PatternData } from "../services/mockBackend";
-import { getAiDipRecommendation } from "../services/patternService";
 
 interface PatternFormProps {
   onAnalyze: (data: PatternData) => void;
   isLoading: boolean;
-  showConsolidationZones: boolean;
-  onToggleConsolidationZones: (show: boolean) => void;
-  selectedSymbol?: string; 
 }
 
-const PatternForm: FC<PatternFormProps> = ({ 
-  onAnalyze, 
-  isLoading,
-  showConsolidationZones,
-  onToggleConsolidationZones,
-  selectedSymbol
-}) => {
+const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
   const [pattern, setPattern] = useState("nrb");
   const [weeks, setWeeks] = useState(52);
   const [parameter, setParameter] = useState("rsc30");
-  
+
   // Cooldown State
   const [cooldownWeeks, setCooldownWeeks] = useState(5);
   const [cooldownWeeksInput, setCooldownWeeksInput] = useState("5");
   const [cooldownError, setCooldownError] = useState<string | null>(null);
 
-  // Dip Threshold State
-  const [dipThreshold, setDipThreshold] = useState(20);
-  const [dipThresholdInput, setDipThresholdInput] = useState("20");
-  const [dipThresholdError, setDipThresholdError] = useState<string | null>(null);
+  // Dip Threshold State (fixed default)
+  const [dipThreshold] = useState(20);
 
   // 🆕 Whipsaw State (D1 & D2)
   const [whipsawD1, setWhipsawD1] = useState<number | "">("");
   const [whipsawD2, setWhipsawD2] = useState<number | "">("");
 
-  // AI Loading State
-  const [isAiLoading, setIsAiLoading] = useState(false);
-
   // --- Validation Logic ---
 
   const validateCooldown = (value: number): string | null => {
-    if (isNaN(value) || !Number.isInteger(value)) return "Please enter a valid number";
+    if (isNaN(value) || !Number.isInteger(value))
+      return "Please enter a valid number";
     if (value < 1) return "Cooldown must be at least 1 week";
     if (value > 100) return "Cooldown cannot exceed 100 weeks";
     return null;
   };
 
-  const validateDipThreshold = (value: number): string | null => {
-    if (isNaN(value)) return "Please enter a valid number";
-    if (value < 0) return "Threshold cannot be negative";
-    if (value > 100) return "Threshold cannot exceed 100%";
-    return null;
-  };
+  // Dip threshold validation no longer needed (input removed)
 
   // --- Handlers ---
 
@@ -77,53 +58,14 @@ const PatternForm: FC<PatternFormProps> = ({
     }
   };
 
-  const handleDipThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setDipThresholdInput(value);
-    if (value === "") {
-      setDipThresholdError(null);
-      return;
-    }
-    const numValue = Number(value);
-    const error = validateDipThreshold(numValue);
-    setDipThresholdError(error);
-    if (!error) setDipThreshold(numValue);
-  };
-
-  const handleDipThresholdBlur = () => {
-    if (dipThresholdInput === "") {
-      setDipThresholdInput("20");
-      setDipThreshold(20);
-      setDipThresholdError(null);
-    }
-  };
-
-  const handleAutoDetectDip = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!selectedSymbol) return;
-    setIsAiLoading(true);
-    try {
-      const data = await getAiDipRecommendation(selectedSymbol);
-      if (data && data.recommended_dip_percentage) {
-        const aiValue = data.recommended_dip_percentage;
-        setDipThreshold(aiValue);
-        setDipThresholdInput(String(aiValue));
-        setDipThresholdError(null);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (pattern === "nrb") {
       const cError = validateCooldown(cooldownWeeks);
-      const dError = validateDipThreshold(dipThreshold);
-      if (cError) { setCooldownError(cError); return; }
-      if (dError) { setDipThresholdError(dError); return; }
+      if (cError) {
+        setCooldownError(cError);
+        return;
+      }
     }
 
     const submitData: any = {
@@ -135,7 +77,7 @@ const PatternForm: FC<PatternFormProps> = ({
     if (pattern === "nrb") {
       submitData.cooldownWeeks = cooldownWeeks;
       submitData.dipThreshold = dipThreshold;
-      
+
       // 🆕 Pass D1/D2 only if selected
       if (whipsawD1 !== "") submitData.whipsawD1 = Number(whipsawD1);
       if (whipsawD2 !== "") submitData.whipsawD2 = Number(whipsawD2);
@@ -199,10 +141,10 @@ const PatternForm: FC<PatternFormProps> = ({
 
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
-                <label className="block text-sm font-medium mb-2 text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-300">
                 Cooldown (wks)
-                </label>
-                <input
+              </label>
+              <input
                 type="number"
                 min="1"
                 max="100"
@@ -212,12 +154,16 @@ const PatternForm: FC<PatternFormProps> = ({
                 onBlur={handleCooldownBlur}
                 placeholder="5"
                 className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
-                    cooldownError ? "border-red-500 focus:ring-red-500" : "border-slate-600"
+                  cooldownError
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-slate-600"
                 }`}
-                />
-                {cooldownError && (
-                <p className="mt-1 text-[10px] text-red-400 leading-tight">{cooldownError}</p>
-                )}
+              />
+              {cooldownError && (
+                <p className="mt-1 text-[10px] text-red-400 leading-tight">
+                  {cooldownError}
+                </p>
+              )}
             </div>
 
             {/* <div>
@@ -259,51 +205,63 @@ const PatternForm: FC<PatternFormProps> = ({
                 )}
             </div> */}
           </div>
-          
+
           {/* 🆕 UPDATED WHIPSAW SECTION (D1 / D2 with extended range) */}
           <div className="mb-4 border-t border-slate-700 pt-4">
-             <div className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
-               Whipsaw Detection (Optional)
-             </div>
-             <div className="grid grid-cols-2 gap-3">
-                <div>
-                   <label className="block text-xs font-medium mb-1 text-slate-300">
-                     Drop Duration (D1)
-                   </label>
-                   <select
-                     value={whipsawD1}
-                     onChange={(e) => setWhipsawD1(e.target.value === "" ? "" : Number(e.target.value))}
-                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:ring-2 focus:ring-brand-primary outline-none"
-                   >
-                     <option value="">None</option>
-                     {weekOptions.map((num) => (
-                       <option key={num} value={num}>{num} Weeks</option>
-                     ))}
-                   </select>
-                </div>
-                <div>
-                   <label className="block text-xs font-medium mb-1 text-slate-300">
-                     Recovery Duration (D2)
-                   </label>
-                   <select
-                     value={whipsawD2}
-                     onChange={(e) => setWhipsawD2(e.target.value === "" ? "" : Number(e.target.value))}
-                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:ring-2 focus:ring-brand-primary outline-none"
-                   >
-                     <option value="">None</option>
-                     {weekOptions.map((num) => (
-                       <option key={num} value={num}>{num} Weeks</option>
-                     ))}
-                   </select>
-                </div>
-             </div>
+            <div className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+              Whipsaw Detection (Optional)
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium mb-1 text-slate-300">
+                  Drop Duration (D1)
+                </label>
+                <select
+                  value={whipsawD1}
+                  onChange={(e) =>
+                    setWhipsawD1(
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                  className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                >
+                  <option value="">None</option>
+                  {weekOptions.map((num) => (
+                    <option key={num} value={num}>
+                      {num} Weeks
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1 text-slate-300">
+                  Recovery Duration (D2)
+                </label>
+                <select
+                  value={whipsawD2}
+                  onChange={(e) =>
+                    setWhipsawD2(
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                  className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                >
+                  <option value="">None</option>
+                  {weekOptions.map((num) => (
+                    <option key={num} value={num}>
+                      {num} Weeks
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         </>
       )}
 
       <div className="mb-6">
         <label className="block text-sm font-medium mb-2 text-slate-300">
-          Parameter 
+          Parameter
         </label>
         <select
           value={parameter}

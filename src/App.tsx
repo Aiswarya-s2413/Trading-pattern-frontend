@@ -60,7 +60,10 @@ function App() {
     }
 
     try {
-      // 🆕 UPDATED: Pass data.dipThreshold to the service
+      // 🟢 UPDATED: Pass Whipsaw D1/D2 to the service
+      // We cast data as 'any' here just in case PatternData interface isn't updated yet
+      const formData = data as any;
+
       const response = await fetchPatternScanData(
         currentSymbol,
         data.pattern === "nrb" ? "Narrow Range Break" : "Bowl",
@@ -69,7 +72,9 @@ function App() {
         data.weeks,
         data.parameter, 
         data.cooldownWeeks,
-        data.dipThreshold // <--- Passed here
+        data.dipThreshold,
+        formData.whipsawD1, // <--- 🆕 Passed D1
+        formData.whipsawD2  // <--- 🆕 Passed D2
       );
 
       console.log("Normalized Pattern Data:", response);

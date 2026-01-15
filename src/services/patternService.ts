@@ -15,13 +15,19 @@ export interface SeriesPoint {
   value: number;
 }
 
-// 🆕 NEW INTERFACE: Whipsaw Event
+// 🆕 UPDATED INTERFACE: Whipsaw Event
+// Now supports both Standard Levels (1, 2, 3) and V-Shape (Level 4)
 export interface WhipsawEvent {
-  level: number;       // 1, 2, or 3
-  time: number;        // Timestamp of the drop
-  price: number;       // Price at the time of drop
-  peak_price: number;  // The peak it fell from
-  drawdown_pct: number;// The exact percentage drop
+  level: number;       // 1, 2, 3, or 4 (4 = V-Shape)
+  time: number;        // Timestamp of the event (Drop or Recovery)
+  price: number;       // Price at the time of event
+  peak_price?: number; // (Standard) The peak it fell from
+  drawdown_pct?: number; // (Standard) The exact percentage drop
+  
+  // 🆕 Fields for V-Shape Logic
+  drop_time?: number;  
+  drop_price?: number; 
+  is_v_shape?: boolean;
 }
 
 export interface Marker {
@@ -56,7 +62,7 @@ export interface Marker {
 
   direction?: "Bullish Break" | "Bearish Break" | string;
   
-  whipsaws?: WhipsawEvent[]; // 🆕 ADDED THIS FIELD
+  whipsaws?: WhipsawEvent[]; 
 }
 
 export interface ConsolidationZone {
@@ -131,7 +137,10 @@ export const fetchPatternScanData = async (
   weeks?: number,
   series?: string | null,
   cooldownWeeks?: number,
-  dipThreshold?: number // 🆕 Added parameter
+  dipThreshold?: number,
+  // 🆕 NEW OPTIONAL PARAMS
+  whipsawD1?: number,
+  whipsawD2?: number
 ): Promise<PatternScanResponse> => {
   try {
     const params: any = {
@@ -144,9 +153,13 @@ export const fetchPatternScanData = async (
     if (pattern === "Narrow Range Break" && weeks != null) params.weeks = weeks;
     if (pattern === "Narrow Range Break" && cooldownWeeks != null) params.cooldown_weeks = cooldownWeeks;
     
-    // 🆕 PASS DIP THRESHOLD
+    // Pass Dip Threshold
     if (pattern === "Narrow Range Break" && dipThreshold != null) params.dip_threshold = dipThreshold;
     
+    // 🆕 PASS WHIPSAW D1/D2
+    if (whipsawD1 != null) params.whipsaw_d1 = whipsawD1;
+    if (whipsawD2 != null) params.whipsaw_d2 = whipsawD2;
+
     if (series) params.series = series;
 
     const response = await axios.get<PatternScanResponse>(
@@ -240,7 +253,7 @@ export const fetchPatternScanData = async (
         group_end_time: marker.group_end_time ?? null,
         group_nrb_count: marker.group_nrb_count ?? null,
         direction: marker.direction,
-        whipsaws: marker.whipsaws ?? [], // 🆕 KEY FIX: Pass whipsaws through!
+        whipsaws: marker.whipsaws ?? [], 
       })),
       total_consolidation_duration_weeks: totalConsolidationDurationWeeks,
       series: normalizedSeries,

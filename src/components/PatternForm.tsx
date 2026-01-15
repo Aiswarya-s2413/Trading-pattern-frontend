@@ -31,7 +31,11 @@ const PatternForm: FC<PatternFormProps> = ({
   const [dipThresholdInput, setDipThresholdInput] = useState("20");
   const [dipThresholdError, setDipThresholdError] = useState<string | null>(null);
 
-  // AI Loading State (No feedback text needed anymore)
+  // 🆕 Whipsaw State (D1 & D2)
+  const [whipsawD1, setWhipsawD1] = useState<number | "">("");
+  const [whipsawD2, setWhipsawD2] = useState<number | "">("");
+
+  // AI Loading State
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   // --- Validation Logic ---
@@ -94,28 +98,20 @@ const PatternForm: FC<PatternFormProps> = ({
     }
   };
 
-  // 🪄 The Silent Magic Handler
   const handleAutoDetectDip = async (e: React.MouseEvent) => {
     e.preventDefault();
-    
     if (!selectedSymbol) return;
-
     setIsAiLoading(true);
-
     try {
       const data = await getAiDipRecommendation(selectedSymbol);
-      
       if (data && data.recommended_dip_percentage) {
-        // Just update the value silently
         const aiValue = data.recommended_dip_percentage;
         setDipThreshold(aiValue);
         setDipThresholdInput(String(aiValue));
         setDipThresholdError(null);
-        // Reasoning is ignored as requested
       }
     } catch (error) {
       console.error(error);
-      // Fail silently or just log to console, no UI error needed
     } finally {
       setIsAiLoading(false);
     }
@@ -130,7 +126,7 @@ const PatternForm: FC<PatternFormProps> = ({
       if (dError) { setDipThresholdError(dError); return; }
     }
 
-    const submitData: PatternData = {
+    const submitData: any = {
       pattern,
       weeks,
       parameter: parameter || null,
@@ -139,10 +135,28 @@ const PatternForm: FC<PatternFormProps> = ({
     if (pattern === "nrb") {
       submitData.cooldownWeeks = cooldownWeeks;
       submitData.dipThreshold = dipThreshold;
+      
+      // 🆕 Pass D1/D2 only if selected
+      if (whipsawD1 !== "") submitData.whipsawD1 = Number(whipsawD1);
+      if (whipsawD2 !== "") submitData.whipsawD2 = Number(whipsawD2);
     }
 
     onAnalyze(submitData);
   };
+
+  // Helper to generate range
+  const generateWeekOptions = () => {
+    const options = [];
+    // 1-10 weeks
+    for (let i = 1; i <= 10; i++) options.push(i);
+    // 12-24 weeks (monthly steps)
+    for (let i = 12; i <= 24; i += 4) options.push(i);
+    // 26, 30, 40, 52 weeks
+    options.push(26, 30, 40, 52);
+    return options;
+  };
+
+  const weekOptions = generateWeekOptions();
 
   return (
     <form
@@ -206,8 +220,7 @@ const PatternForm: FC<PatternFormProps> = ({
                 )}
             </div>
 
-            <div>
-                {/* 🗑️ REMOVED: Symbol Badge from Label */}
+            {/* <div>
                 <label className="block text-sm font-medium mb-2 text-slate-300">
                   NRB Rate (%)
                 </label>
@@ -241,11 +254,49 @@ const PatternForm: FC<PatternFormProps> = ({
                   </button>
                 </div>
 
-                {/* 🗑️ REMOVED: AI Feedback Text */}
                 {dipThresholdError && (
                   <p className="mt-1 text-[10px] text-red-400 leading-tight">{dipThresholdError}</p>
                 )}
-            </div>
+            </div> */}
+          </div>
+          
+          {/* 🆕 UPDATED WHIPSAW SECTION (D1 / D2 with extended range) */}
+          <div className="mb-4 border-t border-slate-700 pt-4">
+             <div className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+               Whipsaw Detection (Optional)
+             </div>
+             <div className="grid grid-cols-2 gap-3">
+                <div>
+                   <label className="block text-xs font-medium mb-1 text-slate-300">
+                     Drop Duration (D1)
+                   </label>
+                   <select
+                     value={whipsawD1}
+                     onChange={(e) => setWhipsawD1(e.target.value === "" ? "" : Number(e.target.value))}
+                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                   >
+                     <option value="">None</option>
+                     {weekOptions.map((num) => (
+                       <option key={num} value={num}>{num} Weeks</option>
+                     ))}
+                   </select>
+                </div>
+                <div>
+                   <label className="block text-xs font-medium mb-1 text-slate-300">
+                     Recovery Duration (D2)
+                   </label>
+                   <select
+                     value={whipsawD2}
+                     onChange={(e) => setWhipsawD2(e.target.value === "" ? "" : Number(e.target.value))}
+                     className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                   >
+                     <option value="">None</option>
+                     {weekOptions.map((num) => (
+                       <option key={num} value={num}>{num} Weeks</option>
+                     ))}
+                   </select>
+                </div>
+             </div>
           </div>
         </>
       )}
@@ -267,7 +318,7 @@ const PatternForm: FC<PatternFormProps> = ({
         </select>
       </div>
 
-      {pattern === "nrb" && (
+      {/* {pattern === "nrb" && (
         <div className="mb-6">
           <label className="flex items-center space-x-3 cursor-pointer">
             <input
@@ -284,7 +335,7 @@ const PatternForm: FC<PatternFormProps> = ({
             Show detailed zone analysis with success rates
           </p>
         </div>
-      )}
+      )} */}
 
       <button
         type="submit"

@@ -249,7 +249,7 @@ function App() {
     <div className="min-h-screen bg-dark-bg px-2 py-3 flex flex-col gap-6">
       <header className="flex justify-between items-center">
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-accent">
-          Pattern Recognition Tool
+          
         </h1>
       </header>
 

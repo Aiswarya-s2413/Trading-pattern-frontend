@@ -214,7 +214,7 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium mb-1 text-slate-300">
-                  Drop Duration (D1)
+                  Drop Duration 
                 </label>
                 <select
                   value={whipsawD1}
@@ -235,7 +235,7 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1 text-slate-300">
-                  Recovery Duration (D2)
+                  Recovery Duration
                 </label>
                 <select
                   value={whipsawD2}

@@ -12,8 +12,8 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
   const [parameter, setParameter] = useState("rsc30");
 
   // Cooldown State
-  const [cooldownWeeks, setCooldownWeeks] = useState(5);
-  const [cooldownWeeksInput, setCooldownWeeksInput] = useState("5");
+  const [cooldownWeeks, setCooldownWeeks] = useState(52);
+  const [cooldownWeeksInput, setCooldownWeeksInput] = useState("52");
   const [cooldownError, setCooldownError] = useState<string | null>(null);
 
   // Dip Threshold State (fixed default)
@@ -52,8 +52,8 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
 
   const handleCooldownBlur = () => {
     if (cooldownWeeksInput === "") {
-      setCooldownWeeksInput("5");
-      setCooldownWeeks(5);
+      setCooldownWeeksInput("52");
+      setCooldownWeeks(52);
       setCooldownError(null);
     }
   };
@@ -152,7 +152,7 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
                 value={cooldownWeeksInput}
                 onChange={handleCooldownChange}
                 onBlur={handleCooldownBlur}
-                placeholder="5"
+                placeholder="52"
                 className={`w-full bg-slate-800 border rounded p-2 text-white focus:ring-2 focus:ring-brand-primary outline-none ${
                   cooldownError
                     ? "border-red-500 focus:ring-red-500"

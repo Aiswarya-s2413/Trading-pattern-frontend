@@ -208,12 +208,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
         for (const group of nrbGroups) {
           const count = group.group_nrb_count || 0;
-          const duration = group.group_duration_weeks || 0;
-          const isExtendedLevel = duration > 24;
+          
+          
           const isCluster = count > 1;
 
           let isVisible = false;
-          if (showSingleLevelNrbs) isVisible = true; // 🟢 CHANGED: Show ALL when enabled
+          if (showSingleLevelNrbs) isVisible = true; // Show ALL when enabled
           else if (isCluster && showNrbClusters) isVisible = true;
 
           if (!isVisible) continue;
@@ -256,10 +256,10 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             ? `${foundGroup.group_duration_weeks} weeks`
             : "N/A";
 
-          const isExtendedLevel = (foundGroup.group_duration_weeks || 0) > 24;
           const isCluster = (foundGroup.group_nrb_count || 0) > 1;
+          const isExtendedLevel = (foundGroup.group_duration_weeks || 0) > 24;
           
-          // 🟢 UPDATED: Better title logic
+          // Better title logic
           let titleColor = "#00E5FF"; // Default cyan for NRB + Zones
           let titleText = "NRB Level";
           
@@ -632,18 +632,6 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         series.setData([]);
       });
 
-      const nrbMarkersWithRange = markers.filter((m: any) => {
-        const isBowlMarker =
-          (isBowlPattern && m.pattern_id != null) ||
-          m.text?.toUpperCase().includes("BOWL");
-        const hasRange =
-          m.range_low != null &&
-          m.range_high != null &&
-          m.range_start_time != null &&
-          m.range_end_time != null;
-        return !isBowlMarker && hasRange;
-      });
-
       // 🟢 REMOVED: Individual NRB Range Lines - No longer needed since all NRBs now have group lines
       // All NRBs are now displayed as cyan group lines above
       nrbRangeSeriesRefs.current.forEach((series, key) => {
@@ -749,9 +737,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         const groupsToDraw = nrbGroups;
         groupsToDraw.forEach((group) => {
           const count = group.group_nrb_count || 0;
-          const duration = group.group_duration_weeks || 0;
+          
 
-          const isExtendedLevel = duration > 24;
+          
           const isCluster = count > 1;
 
           let lineColor: string | null = null;

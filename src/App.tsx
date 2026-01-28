@@ -156,7 +156,6 @@ function App() {
       });
     }
 
-    const isLevel = (group.group_duration_weeks || 0) > 24;
     const isCluster = (group.group_nrb_count || 0) > 1;
 
     return (
@@ -336,7 +335,7 @@ function App() {
                 </div>
               )}
 
-            {/* All NRBs (Cyan) - 🟢 UPDATED SECTION */}
+            {/* All NRBs (Cyan) */}
             {lastPattern === "nrb" &&
               hasAnalyzed &&
               showSingleLevelNrbs &&

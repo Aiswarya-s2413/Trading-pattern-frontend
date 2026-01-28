@@ -213,7 +213,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const isCluster = count > 1;
 
           let isVisible = false;
-          if (isExtendedLevel && showSingleLevelNrbs) isVisible = true;
+          if (showSingleLevelNrbs) isVisible = true; // 🟢 CHANGED: Show ALL when enabled
           else if (isCluster && showNrbClusters) isVisible = true;
 
           if (!isVisible) continue;
@@ -257,12 +257,18 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             : "N/A";
 
           const isExtendedLevel = (foundGroup.group_duration_weeks || 0) > 24;
-          let titleColor =
-            isExtendedLevel && showSingleLevelNrbs ? "#00E5FF" : "#FFEA00";
-          let titleText =
-            isExtendedLevel && showSingleLevelNrbs
-              ? "Historical Level"
-              : "NRB Cluster";
+          const isCluster = (foundGroup.group_nrb_count || 0) > 1;
+          
+          // 🟢 UPDATED: Better title logic
+          let titleColor = "#00E5FF"; // Default cyan for NRB + Zones
+          let titleText = "NRB Level";
+          
+          if (isCluster) {
+            titleColor = "#FFEA00";
+            titleText = "NRB Cluster";
+          } else if (isExtendedLevel) {
+            titleText = "Historical Level";
+          }
 
           infoBoxRef.current.style.display = "block";
           infoBoxRef.current.innerHTML = `
@@ -638,59 +644,13 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         return !isBowlMarker && hasRange;
       });
 
-      nrbMarkersWithRange.forEach((marker: any) => {
-        const id =
-          marker.nrb_id != null ? String(marker.nrb_id) : String(marker.time);
-        if (Number(marker.range_start_time) >= Number(marker.range_end_time))
-          return;
-
-        const highKey = `${id}-high`;
-        let highSeries = nrbRangeSeriesRefs.current.get(highKey);
-        if (!highSeries) {
-          highSeries = chart.addSeries(LineSeries, {
-            color: "#888888",
-            lineWidth: 1,
-            lineStyle: 1,
-            crosshairMarkerVisible: false,
-            priceLineVisible: false,
-            priceFormat: { type: "price", precision: 4, minMove: 0.0001 },
-          });
-          nrbRangeSeriesRefs.current.set(highKey, highSeries);
+      // 🟢 REMOVED: Individual NRB Range Lines - No longer needed since all NRBs now have group lines
+      // All NRBs are now displayed as cyan group lines above
+      nrbRangeSeriesRefs.current.forEach((series, key) => {
+        // Clear any old individual range lines
+        if (key.includes('-high') || key.includes('-low') || key.includes('-90')) {
+          series.setData([]);
         }
-        highSeries.setData([
-          {
-            time: marker.range_start_time as Time,
-            value: marker.range_high as number,
-          },
-          {
-            time: marker.range_end_time as Time,
-            value: marker.range_high as number,
-          },
-        ]);
-
-        const lowKey = `${id}-low`;
-        let lowSeries = nrbRangeSeriesRefs.current.get(lowKey);
-        if (!lowSeries) {
-          lowSeries = chart.addSeries(LineSeries, {
-            color: "#888888",
-            lineWidth: 1,
-            lineStyle: 1,
-            crosshairMarkerVisible: false,
-            priceLineVisible: false,
-            priceFormat: { type: "price", precision: 4, minMove: 0.0001 },
-          });
-          nrbRangeSeriesRefs.current.set(lowKey, lowSeries);
-        }
-        lowSeries.setData([
-          {
-            time: marker.range_start_time as Time,
-            value: marker.range_low as number,
-          },
-          {
-            time: marker.range_end_time as Time,
-            value: marker.range_low as number,
-          },
-        ]);
       });
 
       // Consolidation Boxes
@@ -784,6 +744,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         zoneFillSeries.setData([]);
       }
 
+      // 🟢 UPDATED: Draw NRB Group Lines - ALL groups shown when "Show NRB + Zones" enabled
       if (nrbGroups && nrbGroups.length > 0) {
         const groupsToDraw = nrbGroups;
         groupsToDraw.forEach((group) => {
@@ -796,7 +757,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           let lineColor: string | null = null;
           let style = LineStyle.Dashed;
 
-          if (isExtendedLevel && showSingleLevelNrbs) {
+          // 🟢 CHANGED: Show cyan lines for ALL NRBs when "Show NRB + Zones" is enabled
+          if (showSingleLevelNrbs) {
             lineColor = "#00E5FF";
             style = LineStyle.Solid;
           } else if (isCluster && showNrbClusters) {
@@ -817,6 +779,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
           const level = Number(group.group_level);
           if (startTime >= endTime) return;
 
+          // 🟢 ONLY DRAW TOP LINE AT group_level
           const lineKey = `nrb-group-${group.group_id}-line`;
           let lineSeries = nrbRangeSeriesRefs.current.get(lineKey);
 
@@ -839,32 +802,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
             { time: endTime as Time, value: level },
           ]);
 
-          if (isExtendedLevel && showSingleLevelNrbs) {
-            const level90 = level * 0.9;
-            const key90 = `nrb-group-${group.group_id}-90`;
-            let series90 = nrb90PercentSeriesRefs.current.get(key90);
-
-            if (!series90) {
-              series90 = chart.addSeries(LineSeries, {
-                color: "rgba(0, 229, 255, 0.5)",
-                lineWidth: 1,
-                lineStyle: LineStyle.Dotted,
-                crosshairMarkerVisible: false,
-                priceLineVisible: false,
-                priceFormat: { type: "price", precision: 4, minMove: 0.0001 },
-              });
-              nrb90PercentSeriesRefs.current.set(key90, series90);
-            } else {
-              series90.applyOptions({
-                color: "rgba(0, 229, 255, 0.5)",
-                lineStyle: LineStyle.Dotted,
-              });
-            }
-            series90.setData([
-              { time: startTime as Time, value: level90 },
-              { time: endTime as Time, value: level90 },
-            ]);
-          }
+          // 🟢 REMOVED: 90% line - not needed anymore
         });
       }
 

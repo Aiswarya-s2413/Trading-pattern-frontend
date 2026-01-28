@@ -135,10 +135,9 @@ function App() {
   // Logic: All groups (No filtering)
   const allGroups = nrbGroups || [];
 
-  // 1. Historical Levels (Cyan/Blue) -> Duration > 24 weeks
-  const nrbSingles = allGroups.filter(
-    (g) => (g.group_duration_weeks || 0) > 24
-  );
+  // 🟢 UPDATED: Now ALL NRBs are shown when "Show All NRBs" is enabled
+  // We still separate them for the UI display
+  const nrbSingles = allGroups; // Show ALL groups in this section
 
   // 2. Clusters (Yellow) -> Count > 1
   const nrbClusters = allGroups.filter((g) => (g.group_nrb_count || 0) > 1);
@@ -158,6 +157,7 @@ function App() {
     }
 
     const isLevel = (group.group_duration_weeks || 0) > 24;
+    const isCluster = (group.group_nrb_count || 0) > 1;
 
     return (
       <button
@@ -175,7 +175,7 @@ function App() {
         <div className="flex items-center justify-between mb-1">
           <div
             className={`font-medium ${
-              isLevel ? "text-cyan-400" : "text-yellow-400"
+              isCluster ? "text-yellow-400" : "text-cyan-400"
             }`}
           >
             Level: {formatLevel(group.group_level)}
@@ -271,7 +271,7 @@ function App() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
                   <span className="text-sm text-slate-300 font-medium">
-                    Show NRB + Zones
+                    Show All NRBs
                   </span>
                   <input
                     type="checkbox"
@@ -283,7 +283,7 @@ function App() {
 
                 <div className="flex items-center justify-between bg-dark-card p-3 rounded-lg border border-slate-700">
                   <span className="text-sm text-slate-300 font-medium">
-                    Show NRB Levels
+                    Show Clusters Only
                   </span>
                   <input
                     type="checkbox"
@@ -318,10 +318,10 @@ function App() {
                 <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                   <div className="mb-3">
                     <div className="text-slate-400 text-sm">
-                      Same Level NRB Groups ({currentSymbol})
+                      NRB Clusters ({currentSymbol})
                     </div>
-                    <div className="text-lg font-semibold text-white">
-                      {nrbClusters.length} Level
+                    <div className="text-lg font-semibold text-yellow-400">
+                      {nrbClusters.length} Cluster
                       {nrbClusters.length === 1 ? "" : "s"} found
                     </div>
                   </div>
@@ -336,7 +336,7 @@ function App() {
                 </div>
               )}
 
-            {/* Historical (Blue) */}
+            {/* All NRBs (Cyan) - 🟢 UPDATED SECTION */}
             {lastPattern === "nrb" &&
               hasAnalyzed &&
               showSingleLevelNrbs &&
@@ -344,7 +344,7 @@ function App() {
                 <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-slate-700">
                   <div className="mb-3">
                     <div className="text-slate-400 text-sm">
-                      NRB + Zones ({currentSymbol})
+                      All NRB Levels ({currentSymbol})
                     </div>
                     <div className="text-lg font-semibold text-cyan-400">
                       {nrbSingles.length} Level
@@ -466,7 +466,7 @@ function App() {
       </main>
 
       <div className="fixed bottom-2 right-2 text-slate-400 text-sm">
-        v0.0.11
+        v0.0.12
       </div>
     </div>
   );

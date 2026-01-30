@@ -315,6 +315,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
       parameterSeriesData &&
       parameterSeriesData.length > 0;
     const isRSC30 = parameterSeriesName === "rsc30";
+    const isRSC_NSE = parameterSeriesName === "rsc_nse"; // 🟢 ADDED: RSC-NSE check
 
     // Set Data for Main Series
     if (priceData.length > 0 || (showParameterLine && parameterSeriesData)) {
@@ -330,7 +331,8 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({
         };
         const lineColor = lineColors[parameterSeriesName || ""] || "#2962FF";
 
-        if (isRSC30) {
+        // 🟢 MODIFIED: Handle both RSC30 and RSC-NSE
+        if (isRSC30 || isRSC_NSE) {
           parameterLineSeries.applyOptions({
             visible: true,
             color: "rgba(128, 128, 128, 0.8)",

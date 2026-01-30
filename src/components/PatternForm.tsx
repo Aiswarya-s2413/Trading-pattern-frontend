@@ -273,6 +273,7 @@ const PatternForm: FC<PatternFormProps> = ({ onAnalyze, isLoading }) => {
           <option value="ema50">EMA 50</option>
           <option value="ema200">EMA 200</option>
           <option value="rsc30">RSC SENSEX (Ratio + EMAs)</option>
+          <option value="rsc_nse">RSC NSE (Ratio + EMAs)</option>
         </select>
       </div>
 

@@ -8,8 +8,10 @@ import {
 } from "./services/patternService";
 import { useMarketStore } from "./store/marketStore";
 import { ScrollArea } from "./components/ui/scroll-area";
+import AISignalDashboard from "./components/AISignalDashboard";
 
 function App() {
+  const [currentView, setCurrentView] = useState<"analysis" | "ai-dashboard">("analysis");
   const [isLoading, setIsLoading] = useState(false);
   const [week52High, setWeek52High] = useState<number | null | "unavailable">(
     null
@@ -246,12 +248,39 @@ function App() {
 
   return (
     <div className="min-h-screen bg-dark-bg px-2 py-3 flex flex-col gap-6">
-      <header className="flex justify-between items-center">
+      <header className="flex justify-between items-center px-4">
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-accent">
-          
+          Trading Patterns
         </h1>
+        <div className="flex gap-2">
+           <button
+             onClick={() => setCurrentView("analysis")}
+             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+               currentView === "analysis"
+                 ? "bg-brand-primary text-white"
+                 : "text-slate-400 hover:text-white hover:bg-slate-800"
+             }`}
+           >
+             Analysis
+           </button>
+           <button
+             onClick={() => setCurrentView("ai-dashboard")}
+             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+               currentView === "ai-dashboard"
+                 ? "bg-brand-primary text-white"
+                 : "text-slate-400 hover:text-white hover:bg-slate-800"
+             }`}
+           >
+             AI Signals (2025)
+           </button>
+        </div>
       </header>
 
+      {currentView === "ai-dashboard" ? (
+         <div className="flex-1 h-[85vh] overflow-auto">
+            <AISignalDashboard />
+         </div>
+      ) : (
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 h-[85vh]">
           <ChartContainer
@@ -463,6 +492,7 @@ function App() {
           </div>
         </ScrollArea>
       </main>
+      )}
 
       <div className="fixed bottom-2 right-2 text-slate-400 text-sm">
         v0.0.12

@@ -27,12 +27,7 @@ export const fetchAIPredictions = async (): Promise<PredictionData[]> => {
   }
 };
 
-// Helper to generate random date within next few days
-const getRandomDate = (startOffset: number) => {
-    const date = new Date("2025-01-15");
-    date.setDate(date.getDate() + startOffset);
-    return date.toISOString().split('T')[0];
-};
+
 
 // Extensive Mock Data (Nifty 50 & Popular F&O Stocks)
 export const mockPredictions: PredictionData[] = [

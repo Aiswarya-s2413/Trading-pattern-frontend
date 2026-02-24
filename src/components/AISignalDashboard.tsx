@@ -4,7 +4,7 @@ import { fetchAIPredictions, type PredictionData } from "../services/aiPredictio
 export default function AISignalDashboard() {
   const [predictions, setPredictions] = useState<PredictionData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [showHighConvictionOnly, setShowHighConvictionOnly] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   useEffect(() => {
     fetchAIPredictions()
@@ -19,18 +19,17 @@ export default function AISignalDashboard() {
       });
   }, []);
 
-  // Filter high conviction trades
-  const filteredPredictions = showHighConvictionOnly
-    ? predictions.filter(
-        (p) =>
-          p.predicted_label === 1 &&
-          p.sector_confidence > 0.60 &&
-          p.stock_accuracy > 0.70
-      )
-    : predictions;
+  // Filter by search query
+  const filteredPredictions = predictions.filter((p) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      p.symbol.toLowerCase().includes(query) ||
+      p.sector.toLowerCase().includes(query)
+    );
+  });
 
   // Sorting: Maybe sort by date descending or probability ascending? Keeping simple for now.
-
   if (loading) {
     return <div className="p-8 text-center text-white">Loading AI Predictions...</div>;
   }
@@ -50,21 +49,22 @@ export default function AISignalDashboard() {
             </p>
           </div>
           
-          {/* Toggle Button for High Conviction */}
-          <div className="flex items-center space-x-3 bg-slate-800 p-2 rounded-lg border border-slate-700">
-            <span className="text-sm font-medium text-slate-300">Show High Conviction Only</span>
-             <button
-                onClick={() => setShowHighConvictionOnly(!showHighConvictionOnly)}
-                className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-300 ${
-                  showHighConvictionOnly ? "bg-green-500" : "bg-slate-600"
-                }`}
-              >
-                <div
-                  className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
-                    showHighConvictionOnly ? "translate-x-6" : "translate-x-0"
-                  }`}
-                />
-              </button>
+          {/* Search Input */}
+          <div className="w-full md:w-64">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <svg className="w-4 h-4 text-slate-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                </svg>
+              </div>
+              <input 
+                type="text" 
+                className="block w-full p-2 pl-10 text-sm text-slate-200 border border-slate-700 rounded-lg bg-slate-800/50 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400 transition-colors" 
+                placeholder="Search symbol or sector..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
@@ -74,13 +74,12 @@ export default function AISignalDashboard() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-800/80 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
-                  <th className="px-6 py-4 font-semibold">Stock</th>
-                  <th className="px-6 py-4 font-semibold text-center">Signal</th>
-                  <th className="px-6 py-4 font-semibold">AI Score</th>
-                  <th className="px-6 py-4 font-semibold text-center">Sector Heat</th>
-                  <th className="px-6 py-4 font-semibold text-center">Data Quality</th>
-                  <th className="px-6 py-4 font-semibold text-center">Win Rate</th>
-                  <th className="px-6 py-4 font-semibold text-center">Outcome</th>
+                  <th className="px-6 py-4 font-semibold">Asset</th>
+                  <th className="px-6 py-4 font-semibold text-center">AI Prediction</th>
+                  <th className="px-6 py-4 font-semibold">AI Confidence</th>
+                  <th className="px-6 py-4 font-semibold text-center">Historical Reliability</th>
+                  <th className="px-6 py-4 font-semibold text-center">Actual Market Move</th>
+                  <th className="px-6 py-4 font-semibold text-center">Was AI Correct?</th>
                   <th className="px-6 py-4 font-semibold text-right">Date</th>
                 </tr>
               </thead>
@@ -91,100 +90,126 @@ export default function AISignalDashboard() {
                         key={`${row.symbol}-${idx}`} 
                         className="hover:bg-slate-800/50 transition-colors group"
                     >
-                      {/* Stock Symbol */}
+                      {/* Asset */}
                       <td className="px-6 py-4 font-medium text-white group-hover:text-blue-400 transition-colors">
-                        {row.symbol}
-                        <div className="text-xs text-slate-500 font-normal mt-0.5">{row.sector}</div>
+                        <div className="flex flex-col">
+                          <span className="text-base">{row.symbol}</span>
+                          <span className="text-xs text-slate-500 font-normal mt-0.5">{row.sector}</span>
+                        </div>
                       </td>
 
-                      {/* Signal Badge */}
+                      {/* Action */}
                       <td className="px-6 py-4 text-center">
                         {row.predicted_label === 1 ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-500/10 text-green-400 border border-green-500/20 shadow-[0_0_10px_rgba(34,197,94,0.2)]">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-500/10 text-green-400 border border-green-500/20 shadow-[0_0_10px_rgba(34,197,94,0.2)]">
                             BUY
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-slate-400 border border-slate-600">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400 border border-slate-600/50">
                             AVOID
                           </span>
                         )}
                       </td>
 
-                      {/* AI Probability Score */}
-                      <td className="px-6 py-4 min-w-[140px]">
-                        <div className="flex items-center gap-2">
-                           <span className="text-sm font-semibold text-slate-200">
-                             {(row.predicted_probability * 100).toFixed(0)}%
-                           </span>
-                           <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                      {/* AI Confidence */}
+                      <td className="px-6 py-4 min-w-[160px]">
+                        <div className="flex flex-col gap-1.5">
+                           <div className="flex justify-between items-center text-sm">
+                             <span className="font-semibold text-slate-200">
+                               {(row.predicted_probability * 100).toFixed(0)}%
+                             </span>
+                             <span className={`text-xs font-medium ${
+                               row.predicted_probability >= 0.75 ? "text-green-400" :
+                               row.predicted_probability >= 0.50 ? "text-blue-400" : "text-slate-400"
+                             }`}>
+                               {row.predicted_probability >= 0.75 ? "Strong" :
+                                row.predicted_probability >= 0.50 ? "Moderate" : "Weak"}
+                             </span>
+                           </div>
+                           <div className="w-full h-2 bg-slate-700/50 rounded-full overflow-hidden">
                              <div 
-                               className={`h-full rounded-full ${
-                                 row.predicted_probability > 0.41 ? "bg-gradient-to-r from-blue-500 to-cyan-400" : "bg-slate-500"
+                               className={`h-full rounded-full transition-all duration-500 ${
+                                 row.predicted_probability >= 0.75 ? "bg-gradient-to-r from-green-500 to-emerald-400" :
+                                 row.predicted_probability >= 0.50 ? "bg-gradient-to-r from-blue-500 to-cyan-400" : 
+                                 "bg-slate-500"
                                }`}
                                style={{ width: `${row.predicted_probability * 100}%` }}
                              />
                            </div>
                         </div>
-                         {row.predicted_probability > 0.41 && (
-                             <div className="text-[10px] text-cyan-400 mt-1 font-medium">High Confidence</div>
-                         )}
                       </td>
 
-                      {/* Sector Confidence */}
+                      {/* Historical Accuracy */}
                       <td className="px-6 py-4 text-center">
-                        {row.sector_confidence > 0.60 ? (
-                            <div className="flex flex-col items-center">
-                                <span className="text-xs text-orange-400 font-medium">Hot</span>
-                            </div>
+                         <div className="flex flex-col items-center">
+                            <span className="text-sm text-slate-200 font-medium">
+                              {(row.stock_accuracy * 100).toFixed(0)}%
+                            </span>
+                            {row.stock_accuracy >= 0.70 ? (
+                                <span className="text-[11px] text-emerald-400/90 mt-0.5">Reliable</span>
+                            ) : row.stock_accuracy >= 0.60 ? (
+                                <span className="text-[11px] text-blue-400/90 mt-0.5">Average</span>
+                            ) : (
+                                <span className="text-[11px] text-amber-400/90 mt-0.5">Variable</span>
+                            )}
+                         </div>
+                      </td>
+
+                      {/* Actual Market Move */}
+                      <td className="px-6 py-4 text-center">
+                        {row.actual_success !== null && row.actual_success !== undefined ? (
+                            Number(row.actual_success) === 1 ? (
+                                <div className="flex items-center justify-center text-sm font-medium text-green-400">
+                                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                  Stock Went Up
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center text-sm font-medium text-red-400">
+                                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"></path></svg>
+                                  Stock Dropped
+                                </div>
+                            )
                         ) : (
-                            <div className="text-slate-500 text-xs">-</div>
+                           <div className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                             Pending Data
+                           </div>
                         )}
-                         <div className="text-[10px] text-slate-600 mt-1">{(row.sector_confidence * 100).toFixed(0)}% Win Rate</div>
                       </td>
 
-                      {/* Sample Confidence */}
+                      {/* Was AI Correct? */}
                       <td className="px-6 py-4 text-center">
-                         {row.sample_confidence > 0.80 ? (
-                            <div className="flex flex-col items-center">
-                                <span className="text-xs text-blue-400 font-medium">High Data</span>
-                            </div>
-                         ) : (
-                            <div className="text-slate-500 text-xs">Low Data</div>
-                         )} 
-                         <div className="text-[10px] text-slate-600 mt-1">{(row.sample_confidence * 100).toFixed(0)}% Reliability</div>
-                      </td>
-
-                      {/* Stock Accuracy */}
-                      <td className="px-6 py-4 text-center">
-                         {row.stock_accuracy > 0.70 ? (
-                            <div className="flex flex-col items-center">
-                                <span className="text-xs text-green-400 font-medium">Reliable</span>
-                            </div>
-                         ) : (
-                             <div className="text-slate-500 text-xs">Volatile</div>
-                         )}                         <div className="text-[10px] text-slate-600 mt-1">{(row.stock_accuracy * 100).toFixed(0)}% Hist. Acc.</div>
-                      </td>
-
-                      {/* Actual Outcome (Real 2025 Data) */}
-                      <td className="px-6 py-4 text-center">
-                        {  /* Debugging: Uncomment if needed
-                           console.log(row.symbol, row.actual_success) */ }
                         {row.actual_success !== null && row.actual_success !== undefined ? (
                           row.predicted_label === 1 ? (
                               Number(row.actual_success) === 1 ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                                  WIN
-                                </span>
+                                <div className="flex flex-col items-center">
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                                    YES
+                                  </span>
+                                  <span className="text-[10px] text-green-500/80 mt-1 uppercase tracking-wider">Profitable Trade</span>
+                                </div>
                               ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                                  LOSS
-                                </span>
+                                <div className="flex flex-col items-center">
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                    NO
+                                  </span>
+                                  <span className="text-[10px] text-red-500/80 mt-1 uppercase tracking-wider">Losing Trade</span>
+                                </div>
                               )
                           ) : (
                               Number(row.actual_success) === 1 ? (
-                                <span className="text-slate-500 text-xs italic">Missed</span>
+                                <div className="flex flex-col items-center">
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                    NO
+                                  </span>
+                                  <span className="text-[10px] text-orange-400/80 mt-1 uppercase tracking-wider">Missed Rally</span>
+                                </div>
                               ) : (
-                                <span className="text-slate-500 text-xs italic">Avoided</span>
+                                <div className="flex flex-col items-center">
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                    YES
+                                  </span>
+                                  <span className="text-[10px] text-emerald-500/80 mt-1 uppercase tracking-wider">Smart Avoid</span>
+                                </div>
                               )
                           )
                         ) : (
@@ -201,7 +226,7 @@ export default function AISignalDashboard() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                       No predictions found matching your criteria.
                     </td>
                   </tr>

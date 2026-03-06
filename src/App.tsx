@@ -23,10 +23,7 @@ function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  const navigateTo = (view: "analysis" | "ai-dashboard", path: string) => {
-    window.history.pushState({}, "", path);
-    setCurrentView(view);
-  };
+
   const [isLoading, setIsLoading] = useState(false);
   const [week52High, setWeek52High] = useState<number | null | "unavailable">(
     null
@@ -267,28 +264,6 @@ function App() {
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-accent">
           Trading Patterns
         </h1>
-        <div className="flex gap-2">
-           <button
-             onClick={() => navigateTo("analysis", "/")}
-             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-               currentView === "analysis"
-                 ? "bg-brand-primary text-white"
-                 : "text-slate-400 hover:text-white hover:bg-slate-800"
-             }`}
-           >
-             Analysis
-           </button>
-           <button
-             onClick={() => navigateTo("ai-dashboard", "/ai-analysis")}
-             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-               currentView === "ai-dashboard"
-                 ? "bg-brand-primary text-white"
-                 : "text-slate-400 hover:text-white hover:bg-slate-800"
-             }`}
-           >
-             AI Signals (2025)
-           </button>
-        </div>
       </header>
 
       {currentView === "ai-dashboard" ? (

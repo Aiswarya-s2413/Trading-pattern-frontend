@@ -11,7 +11,22 @@ import { ScrollArea } from "./components/ui/scroll-area";
 import AISignalDashboard from "./components/AISignalDashboard";
 
 function App() {
-  const [currentView, setCurrentView] = useState<"analysis" | "ai-dashboard">("analysis");
+  const [currentView, setCurrentView] = useState<"analysis" | "ai-dashboard">(() => {
+    return window.location.pathname === "/ai-analysis" ? "ai-dashboard" : "analysis";
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(window.location.pathname === "/ai-analysis" ? "ai-dashboard" : "analysis");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigateTo = (view: "analysis" | "ai-dashboard", path: string) => {
+    window.history.pushState({}, "", path);
+    setCurrentView(view);
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [week52High, setWeek52High] = useState<number | null | "unavailable">(
     null
@@ -254,7 +269,7 @@ function App() {
         </h1>
         <div className="flex gap-2">
            <button
-             onClick={() => setCurrentView("analysis")}
+             onClick={() => navigateTo("analysis", "/")}
              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                currentView === "analysis"
                  ? "bg-brand-primary text-white"
@@ -264,7 +279,7 @@ function App() {
              Analysis
            </button>
            <button
-             onClick={() => setCurrentView("ai-dashboard")}
+             onClick={() => navigateTo("ai-dashboard", "/ai-analysis")}
              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                currentView === "ai-dashboard"
                  ? "bg-brand-primary text-white"
